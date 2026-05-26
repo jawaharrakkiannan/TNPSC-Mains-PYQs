@@ -138,6 +138,9 @@ def extract_pattern_b(text: str, year: int, paper: str) -> list[dict]:
     return questions
 
 
+_PAGE_UNIT_RE = re.compile(r"UNIT\s*[-–—]\s*([IVX]+)", re.IGNORECASE)
+_PAGE_SEC_RE  = re.compile(r"SECTION\s*[-–—]\s*([A-C])", re.IGNORECASE)
+
 _QNUM_CELL_RE = re.compile(r"Q\.?\s*\n?No\.?\s*\n?(\d+)", re.IGNORECASE)
 
 
@@ -171,3 +174,96 @@ def extract_pattern_a_from_page(
                 "sub_questions": [], "noise_flagged": False,
             })
     return questions
+
+
+def extract_pdf(pdf_path: str, year: int, paper: str) -> list[dict]:
+    doc = fitz.open(pdf_path)
+    try:
+        if year >= PATTERN_YEAR_CUTOFF:
+            return _extract_pattern_a_doc(doc, year, paper)
+        full_text = "\n".join(page.get_text() for page in doc)
+        return extract_pattern_b(full_text, year=year, paper=paper)
+    finally:
+        doc.close()
+
+
+def _extract_pattern_a_doc(doc, year: int, paper: str) -> list[dict]:
+    questions: list[dict] = []
+    current_unit    = current_section  = None
+    current_marks   = current_word_limit = None
+
+    for page in doc:
+        page_height = page.rect.height
+        page_text = "\n".join(
+            block[4]
+            for block in page.get_text("blocks")
+            if block[1] > page_height * 0.05 and block[3] < page_height * 0.90
+            and block[6] == 0
+        )
+        um = _PAGE_UNIT_RE.search(page_text)
+        if um:
+            current_unit = um.group(1).upper()
+        sm = _PAGE_SEC_RE.search(page_text)
+        if sm:
+            current_section = sm.group(1).upper()
+            m, wl = parse_marks_and_wordlimit(page_text)
+            if m:
+                current_marks = m
+            if wl:
+                current_word_limit = wl
+        questions.extend(extract_pattern_a_from_page(
+            page, year, paper,
+            current_unit, current_section,
+            current_marks, current_word_limit,
+        ))
+    return questions
+
+
+def flag_noise_questions(questions: list[dict]) -> list[dict]:
+    for q in questions:
+        if not q.get("english") and not q.get("tamil"):
+            q["noise_flagged"] = True
+        elif len(q.get("english", "")) < 10:
+            q["noise_flagged"] = True
+    return questions
+
+
+def main(review: bool = False) -> None:
+    all_questions: list[dict] = []
+    for paper, folder in PAPER_DIRS.items():
+        if not os.path.isdir(folder):
+            print(f"  Warning: {folder} not found, skipping", flush=True)
+            continue
+        pdfs = sorted(f for f in os.listdir(folder) if f.endswith(".pdf") and f[:-4].isdigit())
+        print(f"\n[{paper}] {len(pdfs)} PDFs found", flush=True)
+        paper_total = 0
+        for fname in pdfs:
+            year = int(fname[:-4])
+            pdf_path = os.path.join(folder, fname)
+            print(f"  {year}...", end=" ", flush=True)
+            try:
+                qs = extract_pdf(pdf_path, year=year, paper=paper)
+                all_questions.extend(qs)
+                paper_total += len(qs)
+                print(f"{len(qs)} Qs  (total so far: {len(all_questions)})", flush=True)
+            except Exception as e:
+                print(f"ERROR: {e}", flush=True)
+        print(f"  -> {paper} subtotal: {paper_total} questions", flush=True)
+
+    all_questions = flag_noise_questions(all_questions)
+    flagged = sum(1 for q in all_questions if q["noise_flagged"])
+
+    os.makedirs("data", exist_ok=True)
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(all_questions, f, ensure_ascii=False, indent=2)
+    print(f"\nWritten {len(all_questions)} questions ({flagged} flagged) to {OUTPUT_PATH}")
+
+    if review and flagged:
+        flagged_qs = [q for q in all_questions if q["noise_flagged"]]
+        with open("data/review_flags.json", "w", encoding="utf-8") as f:
+            json.dump(flagged_qs, f, ensure_ascii=False, indent=2)
+        print(f"Flagged questions written to data/review_flags.json")
+
+
+if __name__ == "__main__":
+    main(review="--review" in sys.argv)

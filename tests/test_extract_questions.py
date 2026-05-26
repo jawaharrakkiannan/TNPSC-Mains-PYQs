@@ -179,3 +179,46 @@ def test_pattern_a_skips_non_question_rows():
     )
     assert len(results) == 1
     assert results[0]["question_number"] == 1
+
+
+import os
+import pytest
+from scripts.extract_questions import extract_pdf, flag_noise_questions
+
+
+def test_flag_noise_questions_marks_empty_text():
+    qs = [
+        {"english": "", "tamil": "", "question_number": 1, "noise_flagged": False},
+        {"english": "Real question text about India.", "tamil": "தமிழ்",
+         "question_number": 2, "noise_flagged": False},
+    ]
+    result = flag_noise_questions(qs)
+    assert result[0]["noise_flagged"] is True
+    assert result[1]["noise_flagged"] is False
+
+
+def test_flag_noise_short_english():
+    qs = [{"english": "Hi.", "tamil": "", "question_number": 1, "noise_flagged": False}]
+    result = flag_noise_questions(qs)
+    assert result[0]["noise_flagged"] is True
+
+
+@pytest.mark.integration
+def test_extract_pdf_pattern_a():
+    path = "Mains_PYQs/Paper-II/2024.pdf"
+    if not os.path.exists(path):
+        pytest.skip("PDF not present")
+    qs = extract_pdf(path, year=2024, paper="Paper II")
+    assert len(qs) >= 5
+    assert all(q["year"] == 2024 for q in qs)
+    assert all("english" in q for q in qs)
+
+
+@pytest.mark.integration
+def test_extract_pdf_pattern_b():
+    path = "Mains_PYQs/Paper-I/2013.pdf"
+    if not os.path.exists(path):
+        pytest.skip("PDF not present")
+    qs = extract_pdf(path, year=2013, paper="Paper I")
+    assert len(qs) >= 5
+    assert all(q["year"] == 2013 for q in qs)
