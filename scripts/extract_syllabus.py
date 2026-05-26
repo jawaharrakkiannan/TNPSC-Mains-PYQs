@@ -15,22 +15,25 @@ _UNIT_RE  = re.compile(r"^UNIT\s+[IVX]+",  re.IGNORECASE)
 
 def extract_text_blocks(pdf_path: str) -> list[dict]:
     doc = fitz.open(pdf_path)
-    blocks = []
-    for page_num, page in enumerate(doc):
-        for block in page.get_text("dict")["blocks"]:
-            if block["type"] != 0:
-                continue
-            for line in block["lines"]:
-                for span in line["spans"]:
-                    text = span["text"].strip()
-                    if text:
-                        blocks.append({
-                            "text": text,
-                            "size": round(span["size"]),
-                            "bold": bool(span["flags"] & (1 << 4)),
-                            "page": page_num,
-                        })
-    return blocks
+    try:
+        blocks = []
+        for page_num, page in enumerate(doc):
+            for block in page.get_text("dict")["blocks"]:
+                if block["type"] != 0:
+                    continue
+                for line in block["lines"]:
+                    for span in line["spans"]:
+                        text = span["text"].strip()
+                        if text:
+                            blocks.append({
+                                "text": text,
+                                "size": round(span["size"]),
+                                "bold": bool(span["flags"] & (1 << 4)),
+                                "page": page_num,
+                            })
+        return blocks
+    finally:
+        doc.close()
 
 
 def parse_syllabus_hierarchy(blocks: list[dict]) -> dict:
