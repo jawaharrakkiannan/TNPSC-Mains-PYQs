@@ -60,3 +60,54 @@ def test_parse_ignores_very_short_texts():
     kws = result["PAPER I"]["UNIT I: Title"]["Heading One"]
     assert "ab" not in kws
     assert "Valid Keyword Here" in kws
+
+
+import json
+from unittest.mock import MagicMock
+from scripts.extract_syllabus import group_keywords_with_llm, apply_themes_to_hierarchy
+
+
+def test_group_keywords_returns_themes():
+    keywords = ["Advent of Europeans", "Colonialism and imperialism", "Early uprising against British Rule"]
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock(text=json.dumps([
+        {"theme_name": "European Colonialism",
+         "keywords": ["Advent of Europeans", "Colonialism and imperialism"]},
+        {"theme_name": "Early Resistance",
+         "keywords": ["Early uprising against British Rule"]},
+    ]))]
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = mock_response
+
+    result = group_keywords_with_llm("Colonial Period", keywords, mock_client)
+    assert len(result) == 2
+    assert result[0]["theme_name"] == "European Colonialism"
+    assert "Advent of Europeans" in result[0]["keywords"]
+
+
+def test_group_keywords_preserves_all():
+    keywords = ["kw1", "kw2", "kw3"]
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock(text=json.dumps([
+        {"theme_name": "A", "keywords": ["kw1", "kw2"]},
+        {"theme_name": "B", "keywords": ["kw3"]},
+    ]))]
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = mock_response
+
+    result = group_keywords_with_llm("Heading", keywords, mock_client)
+    all_kws = [kw for t in result for kw in t["keywords"]]
+    assert set(all_kws) == set(keywords)
+
+
+def test_apply_themes_structures_output():
+    hierarchy = {"PAPER II": {"UNIT I": {"Heading A": ["kw1", "kw2"]}}}
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = MagicMock(
+        content=[MagicMock(text=json.dumps([
+            {"theme_name": "Theme A", "keywords": ["kw1", "kw2"]}
+        ]))]
+    )
+    result = apply_themes_to_hierarchy(hierarchy, mock_client)
+    assert "themes" in result["PAPER II"]["UNIT I"]["Heading A"]
+    assert result["PAPER II"]["UNIT I"]["Heading A"]["themes"][0]["theme_name"] == "Theme A"

@@ -66,3 +66,58 @@ def parse_syllabus_hierarchy(blocks: list[dict]) -> dict:
             result[current_paper][current_unit][current_heading].append(text)
 
     return result
+
+
+def group_keywords_with_llm(
+    heading: str, keywords: list[str], client: anthropic.Anthropic
+) -> list[dict]:
+    prompt = (
+        f"You are organising the TNPSC Group I Mains exam syllabus.\n\n"
+        f"Heading: {heading}\n"
+        f"Keywords: {json.dumps(keywords, ensure_ascii=False)}\n\n"
+        "Group these keywords into 2-5 logical themes. Rules:\n"
+        "- Every keyword must appear in exactly one theme\n"
+        "- Theme names must be specific and domain-appropriate\n"
+        "- Preserve logical flow — related topics stay together\n"
+        'Return ONLY a JSON array: [{"theme_name": "...", "keywords": [...]}]'
+    )
+    response = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return json.loads(response.content[0].text)
+
+
+def apply_themes_to_hierarchy(
+    hierarchy: dict, client: anthropic.Anthropic
+) -> dict:
+    result: dict = {}
+    for paper, units in hierarchy.items():
+        result[paper] = {}
+        for unit, headings in units.items():
+            result[paper][unit] = {}
+            for heading, keywords in headings.items():
+                themes = group_keywords_with_llm(heading, keywords, client)
+                result[paper][unit][heading] = {"themes": themes}
+    return result
+
+
+def main() -> None:
+    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    print("Extracting syllabus text blocks...")
+    blocks = extract_text_blocks(SYLLABUS_PDF)
+    print(f"  {len(blocks)} text spans")
+    print("Parsing hierarchy...")
+    hierarchy = parse_syllabus_hierarchy(blocks)
+    print(f"  {len(hierarchy)} papers found")
+    print("Grouping keywords via LLM...")
+    themed = apply_themes_to_hierarchy(hierarchy, client)
+    os.makedirs("data", exist_ok=True)
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(themed, f, ensure_ascii=False, indent=2)
+    print(f"Written to {OUTPUT_PATH}")
+
+
+if __name__ == "__main__":
+    main()
