@@ -69,3 +69,66 @@ def test_parse_marks_wordlimit_3m():
     marks, wl = parse_marks_and_wordlimit(text)
     assert marks == 3
     assert wl == 30
+
+
+from scripts.extract_questions import extract_pattern_b
+
+_PATTERN_B_TEXT = """
+SECTION - A
+(Very Short Answer Type)
+
+Note:    i) Answer not exceeding 30 words each.
+         ii) Each question carries three marks.
+         iii) Answer any thirty questions out of thirty-five.
+                                                (30 x 3 = 90)
+
+                    UNIT - I
+
+  (MODERN HISTORY OF INDIA AND INDIAN CULTURE)
+
+
+1.   குடை கிட்மாட்கர் இயக்கத்தினால் பரப்பப்பட்ட குறிக்கோள்கள் யாவை?
+     What were the principles advocated by Khudai Khidmatgar Movement?
+
+2.   'தேசாபிமான சந்நியாசி' என்றழைக்கப்பட்டவர் யார்? ஏன்?
+     Who was called as the 'Patriot Saint of India'? Why?
+
+                    UNIT - II
+
+  (GENERAL APTITUDE, MENTAL ABILITY AND INFORMATION TECHNOLOGY)
+
+13.  போக்குவரத்து சிக்னல் விளக்குகள் மாறும் நேரம் கண்டுபிடி.
+     Find the time when traffic signal lights change simultaneously.
+"""
+
+
+def test_pattern_b_returns_questions():
+    qs = extract_pattern_b(_PATTERN_B_TEXT, year=2013, paper="Paper I")
+    assert len(qs) >= 2
+
+
+def test_pattern_b_question_fields():
+    qs = extract_pattern_b(_PATTERN_B_TEXT, year=2013, paper="Paper I")
+    q1 = next(q for q in qs if q["question_number"] == 1)
+    assert q1["year"] == 2013
+    assert q1["paper"] == "Paper I"
+    assert q1["section"] == "A"
+    assert q1["unit_number"] == "I"
+    assert q1["marks"] == 3
+    assert q1["word_limit"] == 30
+    assert "குடை" in q1["tamil"]
+    assert "Khudai" in q1["english"]
+
+
+def test_pattern_b_unit_name_captured():
+    qs = extract_pattern_b(_PATTERN_B_TEXT, year=2013, paper="Paper I")
+    q1 = next(q for q in qs if q["unit_number"] == "I")
+    assert q1["unit_name"] == "MODERN HISTORY OF INDIA AND INDIAN CULTURE"
+
+
+def test_pattern_b_unit_transitions():
+    qs = extract_pattern_b(_PATTERN_B_TEXT, year=2013, paper="Paper I")
+    unit_i  = [q for q in qs if q["unit_number"] == "I"]
+    unit_ii = [q for q in qs if q["unit_number"] == "II"]
+    assert len(unit_i) >= 1
+    assert len(unit_ii) >= 1

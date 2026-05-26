@@ -65,3 +65,74 @@ def parse_marks_and_wordlimit(instr: str) -> tuple[int | None, int | None]:
     if marks is None and nm:
         marks = int(nm.group(1))
     return marks, word_limit
+
+
+_SEC_RE      = re.compile(r"SECTION\s*[-–—]\s*([A-C])", re.IGNORECASE)
+_UNIT_NUM_RE = re.compile(r"UNIT\s*[-–—]\s*([IVX]+)",  re.IGNORECASE)
+_UNIT_NM_RE  = re.compile(r"^\s*\(([A-Z][A-Z ,&/\-]+)\)\s*$")
+_Q_NUM_RE    = re.compile(r"^\s*(\d+)\.\s+(.+)")
+
+
+def extract_pattern_b(text: str, year: int, paper: str) -> list[dict]:
+    questions: list[dict] = []
+    current_section: str | None = None
+    current_unit:    str | None = None
+    current_unit_name: str | None = None
+    current_marks: int | None = None
+    current_wl:    int | None = None
+
+    lines = text.split("\n")
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+
+        sec_m = _SEC_RE.search(line)
+        if sec_m:
+            current_section = sec_m.group(1).upper()
+            instr = " ".join(lines[i:i + 8])
+            current_marks, current_wl = parse_marks_and_wordlimit(instr)
+            i += 1
+            continue
+
+        unit_m = _UNIT_NUM_RE.search(line)
+        if unit_m:
+            current_unit = unit_m.group(1).upper()
+            current_unit_name = None
+            i += 1
+            continue
+
+        name_m = _UNIT_NM_RE.match(line)
+        if name_m and current_unit:
+            current_unit_name = name_m.group(1).strip()
+            i += 1
+            continue
+
+        q_m = _Q_NUM_RE.match(line)
+        if q_m and current_section:
+            q_num = int(q_m.group(1))
+            raw = [q_m.group(2).strip()]
+            j = i + 1
+            while j < len(lines):
+                nxt = lines[j].strip()
+                if not nxt:
+                    j += 1
+                    continue
+                if _Q_NUM_RE.match(nxt) or _SEC_RE.search(nxt) or _UNIT_NUM_RE.search(nxt):
+                    break
+                if not is_noise(nxt):
+                    raw.append(nxt)
+                j += 1
+            tamil, english = split_bilingual("\n".join(raw))
+            questions.append({
+                "year": year, "paper": paper,
+                "unit_number": current_unit, "unit_name": current_unit_name,
+                "section": current_section, "question_number": q_num,
+                "marks": current_marks, "word_limit": current_wl,
+                "tamil": tamil, "english": english,
+                "sub_questions": [], "noise_flagged": False,
+            })
+            i = j
+            continue
+
+        i += 1
+    return questions
