@@ -11,18 +11,36 @@ SYLLABUS_PATH = "data/syllabus_themes.json"
 OUTPUT_PATH   = "data/questions_tagged.json"
 
 
+_BATCH_SIZE = 15
+
+
 def form_batches(questions: list[dict]) -> list[dict]:
     bucket: dict[tuple, list] = {}
     for q in questions:
         key = (q["paper"], q.get("unit_number") or "unknown")
         bucket.setdefault(key, []).append(q)
-    return [
-        {"paper": k[0], "unit_number": k[1], "questions": qs}
-        for k, qs in bucket.items()
-    ]
+    batches = []
+    for (paper, unit), qs in bucket.items():
+        for i in range(0, len(qs), _BATCH_SIZE):
+            batches.append({"paper": paper, "unit_number": unit, "questions": qs[i:i + _BATCH_SIZE]})
+    return batches
+
+
+_ROMAN_VAL = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6}
+_PAPER_OFFSET = 1  # question "Paper N" maps to syllabus "Paper N+1"
+
+
+def _roman_num(text: str) -> int | None:
+    m = re.search(r"\bPaper\s+([IVX]+)\b", text, re.IGNORECASE)
+    if m:
+        return _ROMAN_VAL.get(m.group(1).upper())
+    return None
 
 
 def _paper_matches(paper: str, p_key: str) -> bool:
+    n1, n2 = _roman_num(paper), _roman_num(p_key)
+    if n1 is not None and n2 is not None:
+        return n1 + _PAPER_OFFSET == n2
     return paper.replace(" ", "").lower() == p_key.replace(" ", "").lower()
 
 
@@ -46,6 +64,40 @@ def _unit_full_name(syllabus: dict, paper: str, unit_number: str) -> str:
                 if _unit_matches(unit_number, u_key):
                     return u_key
     return f"Unit {unit_number}"
+
+
+def _extract_json_array(raw: str, context: str) -> list:
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    start = raw.find("[")
+    if start != -1:
+        depth = 0
+        in_str = False
+        escape = False
+        for i, c in enumerate(raw[start:], start):
+            if escape:
+                escape = False
+                continue
+            if c == "\\" and in_str:
+                escape = True
+                continue
+            if c == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if c == "[":
+                depth += 1
+            elif c == "]":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        return json.loads(raw[start : i + 1])
+                    except json.JSONDecodeError:
+                        break
+    raise ValueError(f"LLM returned non-JSON for {context}: {raw[:300]!r}")
 
 
 def tag_batch_with_llm(
@@ -72,15 +124,11 @@ def tag_batch_with_llm(
     )
     resp = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2048,
+        max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
-    try:
-        return json.loads(resp.content[0].text)
-    except json.JSONDecodeError as exc:
-        raise ValueError(
-            f"LLM returned non-JSON for {paper} Unit {unit_number}: {resp.content[0].text!r}"
-        ) from exc
+    raw = resp.content[0].text.strip()
+    return _extract_json_array(raw, f"{paper} Unit {unit_number}")
 
 
 def merge_tags(questions: list[dict], tag_map: dict, syllabus: dict) -> list[dict]:

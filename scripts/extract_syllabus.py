@@ -86,11 +86,14 @@ def group_keywords_with_llm(
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
+    raw = response.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = raw.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     try:
-        return json.loads(response.content[0].text)
+        return json.loads(raw)
     except (json.JSONDecodeError, ValueError) as exc:
         raise ValueError(
-            f"LLM returned non-JSON for heading '{heading}': {response.content[0].text!r}"
+            f"LLM returned non-JSON for heading '{heading}': {raw!r}"
         ) from exc
 
 
