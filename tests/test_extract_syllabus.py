@@ -1,6 +1,13 @@
 # tests/test_extract_syllabus.py
+import json
+import pytest
 from unittest.mock import MagicMock, patch
-from scripts.extract_syllabus import extract_text_blocks, parse_syllabus_hierarchy
+from scripts.extract_syllabus import (
+    extract_text_blocks,
+    parse_syllabus_hierarchy,
+    group_keywords_with_llm,
+    apply_themes_to_hierarchy,
+)
 
 
 def _make_mock_doc(spans):
@@ -62,11 +69,6 @@ def test_parse_ignores_very_short_texts():
     assert "Valid Keyword Here" in kws
 
 
-import json
-from unittest.mock import MagicMock
-from scripts.extract_syllabus import group_keywords_with_llm, apply_themes_to_hierarchy
-
-
 def test_group_keywords_returns_themes():
     keywords = ["Advent of Europeans", "Colonialism and imperialism", "Early uprising against British Rule"]
     mock_response = MagicMock()
@@ -111,3 +113,12 @@ def test_apply_themes_structures_output():
     result = apply_themes_to_hierarchy(hierarchy, mock_client)
     assert "themes" in result["PAPER II"]["UNIT I"]["Heading A"]
     assert result["PAPER II"]["UNIT I"]["Heading A"]["themes"][0]["theme_name"] == "Theme A"
+
+
+def test_group_keywords_raises_on_invalid_json():
+    mock_response = MagicMock()
+    mock_response.content = [MagicMock(text="not valid json at all")]
+    mock_client = MagicMock()
+    mock_client.messages.create.return_value = mock_response
+    with pytest.raises(ValueError, match="LLM returned non-JSON"):
+        group_keywords_with_llm("Heading", ["kw1"], mock_client)

@@ -86,7 +86,12 @@ def group_keywords_with_llm(
         max_tokens=1024,
         messages=[{"role": "user", "content": prompt}],
     )
-    return json.loads(response.content[0].text)
+    try:
+        return json.loads(response.content[0].text)
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(
+            f"LLM returned non-JSON for heading '{heading}': {response.content[0].text!r}"
+        ) from exc
 
 
 def apply_themes_to_hierarchy(
@@ -98,7 +103,11 @@ def apply_themes_to_hierarchy(
         for unit, headings in units.items():
             result[paper][unit] = {}
             for heading, keywords in headings.items():
-                themes = group_keywords_with_llm(heading, keywords, client)
+                try:
+                    themes = group_keywords_with_llm(heading, keywords, client)
+                except ValueError as exc:
+                    print(f"  WARNING: skipping heading '{heading}': {exc}", flush=True)
+                    themes = []
                 result[paper][unit][heading] = {"themes": themes}
     return result
 
