@@ -136,3 +136,38 @@ def extract_pattern_b(text: str, year: int, paper: str) -> list[dict]:
 
         i += 1
     return questions
+
+
+_QNUM_CELL_RE = re.compile(r"Q\.?\s*\n?No\.?\s*\n?(\d+)", re.IGNORECASE)
+
+
+def extract_pattern_a_from_page(
+    page,
+    year: int,
+    paper: str,
+    current_unit: str | None,
+    current_section: str | None,
+    current_marks: int | None,
+    current_word_limit: int | None,
+) -> list[dict]:
+    questions: list[dict] = []
+    for table in page.find_tables():
+        for row in table.extract():
+            if not row or len(row) < 2:
+                continue
+            qno_cell  = str(row[0] or "").strip()
+            text_cell = str(row[1] or "").strip()
+            m = _QNUM_CELL_RE.search(qno_cell)
+            if not m:
+                continue
+            q_num = int(m.group(1))
+            tamil, english = split_bilingual(text_cell)
+            questions.append({
+                "year": year, "paper": paper,
+                "unit_number": current_unit, "unit_name": None,
+                "section": current_section, "question_number": q_num,
+                "marks": current_marks, "word_limit": current_word_limit,
+                "tamil": tamil, "english": english,
+                "sub_questions": [], "noise_flagged": False,
+            })
+    return questions

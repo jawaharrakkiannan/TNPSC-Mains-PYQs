@@ -132,3 +132,50 @@ def test_pattern_b_unit_transitions():
     unit_ii = [q for q in qs if q["unit_number"] == "II"]
     assert len(unit_i) >= 1
     assert len(unit_ii) >= 1
+
+
+from scripts.extract_questions import extract_pattern_a_from_page
+from unittest.mock import MagicMock
+
+
+def _make_page(rows, page_text=""):
+    page = MagicMock()
+    tbl  = MagicMock()
+    tbl.extract.return_value = rows
+    page.find_tables.return_value = [tbl]
+    page.get_text.return_value = page_text
+    page.rect = MagicMock(height=842)
+    return page
+
+
+def test_pattern_a_extracts_questions():
+    rows = [
+        ["Q.No.\n1", "இந்தியாவின் தேசிய கொடி விதி...\nExamine the model set..."],
+        ["Q.No.\n2", "மெக்காலேயின்...\nAnalyse the major recommendations..."],
+    ]
+    page = _make_page(rows)
+    results = extract_pattern_a_from_page(
+        page, year=2024, paper="Paper II",
+        current_unit="I", current_section="A",
+        current_marks=10, current_word_limit=150,
+    )
+    assert len(results) == 2
+    assert results[0]["question_number"] == 1
+    assert results[0]["marks"] == 10
+    assert "இந்தியாவின்" in results[0]["tamil"]
+    assert "Examine" in results[0]["english"]
+
+
+def test_pattern_a_skips_non_question_rows():
+    rows = [
+        ["Q.No.", "Question"],  # header — no Q number match
+        ["Q.No.\n1", "தமிழ்...\nEnglish text here."],
+    ]
+    page = _make_page(rows)
+    results = extract_pattern_a_from_page(
+        page, year=2024, paper="Paper II",
+        current_unit="I", current_section="A",
+        current_marks=10, current_word_limit=150,
+    )
+    assert len(results) == 1
+    assert results[0]["question_number"] == 1
