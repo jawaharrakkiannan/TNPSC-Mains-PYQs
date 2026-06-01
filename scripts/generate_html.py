@@ -84,15 +84,53 @@ function esc(s){const d=document.createElement('div');d.textContent=String(s??''
 
 function init(){
   pop('f-year',[...new Set(QUESTIONS.map(q=>q.year))].sort((a,b)=>b-a));
-  pop('f-unit',[...new Set(QUESTIONS.map(q=>q.tags?.unit).filter(Boolean))].sort());
-  pop('f-theme',[...new Set(QUESTIONS.map(q=>q.tags?.theme).filter(Boolean))].sort());
-  pop('f-keyword',[...new Set(QUESTIONS.map(q=>q.tags?.keyword).filter(Boolean))].sort());
-  applyFilters();
+  cascadeFromPaper();
+}
+
+function repop(id,vals,placeholder){
+  const s=document.getElementById(id);
+  const cur=s.value;
+  while(s.firstChild)s.removeChild(s.firstChild);
+  const def=document.createElement('option');
+  def.value='';def.textContent=placeholder;
+  s.appendChild(def);
+  vals.forEach(v=>{const o=document.createElement('option');o.value=o.textContent=v;s.appendChild(o)});
+  if(vals.includes(cur))s.value=cur;
 }
 
 function pop(id,vals){
   const s=document.getElementById(id);
   vals.forEach(v=>{const o=document.createElement('option');o.value=o.textContent=v;s.appendChild(o)});
+}
+
+function cascadeFromPaper(){
+  const p=document.getElementById('f-paper').value;
+  const base=QUESTIONS.filter(q=>!p||q.paper===p);
+  repop('f-unit',[...new Set(base.map(q=>q.tags?.unit).filter(Boolean))].sort(),'All Units');
+  cascadeFromUnit(base);
+}
+
+function cascadeFromUnit(base){
+  if(!base){
+    const p=document.getElementById('f-paper').value;
+    base=QUESTIONS.filter(q=>!p||q.paper===p);
+  }
+  const u=document.getElementById('f-unit').value;
+  const sub=base.filter(q=>!u||q.tags?.unit===u);
+  repop('f-theme',[...new Set(sub.map(q=>q.tags?.theme).filter(Boolean))].sort(),'All Themes');
+  cascadeFromTheme(sub);
+}
+
+function cascadeFromTheme(sub){
+  if(!sub){
+    const p=document.getElementById('f-paper').value;
+    const u=document.getElementById('f-unit').value;
+    sub=QUESTIONS.filter(q=>(!p||q.paper===p)&&(!u||q.tags?.unit===u));
+  }
+  const t=document.getElementById('f-theme').value;
+  const leaf=sub.filter(q=>!t||q.tags?.theme===t);
+  repop('f-keyword',[...new Set(leaf.map(q=>q.tags?.keyword).filter(Boolean))].sort(),'All Keywords');
+  applyFilters();
 }
 
 function applyFilters(){
@@ -111,9 +149,8 @@ function applyFilters(){
 }
 
 function resetFilters(){
-  ['f-paper','f-year','f-unit','f-theme','f-keyword','f-section','f-marks']
-    .forEach(id=>document.getElementById(id).value='');
-  applyFilters();
+  ['f-paper','f-year','f-section','f-marks'].forEach(id=>document.getElementById(id).value='');
+  cascadeFromPaper();
 }
 
 function switchView(v){
@@ -211,16 +248,16 @@ def generate_html(questions: list[dict]) -> str:
   <aside>
     <div class="sl">Filters</div>
     <label class="fl">Paper</label>
-    <select id="f-paper" onchange="applyFilters()">
+    <select id="f-paper" onchange="cascadeFromPaper()">
       <option value="">All Papers</option>
       <option>Paper I</option><option>Paper II</option><option>Paper III</option>
     </select>
     <label class="fl">Year</label>
     <select id="f-year" onchange="applyFilters()"><option value="">All Years</option></select>
     <label class="fl">Unit</label>
-    <select id="f-unit" onchange="applyFilters()"><option value="">All Units</option></select>
+    <select id="f-unit" onchange="cascadeFromUnit()"><option value="">All Units</option></select>
     <label class="fl">Theme</label>
-    <select id="f-theme" onchange="applyFilters()"><option value="">All Themes</option></select>
+    <select id="f-theme" onchange="cascadeFromTheme()"><option value="">All Themes</option></select>
     <label class="fl">Keyword</label>
     <select id="f-keyword" onchange="applyFilters()"><option value="">All Keywords</option></select>
     <label class="fl">Section</label>

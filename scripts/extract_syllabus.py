@@ -62,8 +62,10 @@ def parse_syllabus_hierarchy(blocks: list[dict]) -> dict:
             result[current_paper][current_unit].setdefault(current_heading, [])
             continue
 
-        if current_heading and len(text) > 3:
-            result[current_paper][current_unit][current_heading].append(text)
+        if current_unit and len(text) > 3 and not re.match(r'^(Page|\d+|of)$', text, re.IGNORECASE):
+            effective_heading = current_heading or current_unit
+            result[current_paper][current_unit].setdefault(effective_heading, [])
+            result[current_paper][current_unit][effective_heading].append(text)
 
     return result
 
@@ -79,6 +81,7 @@ def group_keywords_with_llm(
         "- Every keyword must appear in exactly one theme\n"
         "- Theme names must be specific and domain-appropriate\n"
         "- Preserve logical flow — related topics stay together\n"
+        "- IMPORTANT: Do not use double-quote characters inside string values; use single quotes instead\n"
         'Return ONLY a JSON array: [{"theme_name": "...", "keywords": [...]}]'
     )
     response = client.messages.create(
