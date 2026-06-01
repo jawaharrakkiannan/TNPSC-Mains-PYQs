@@ -111,25 +111,21 @@ def tag_batch_with_llm(
     client: anthropic.Anthropic,
 ) -> list[dict]:
     # syllabus_slice structure: {theme: {subtheme: [keywords]}}
-    flat: dict[str, list[str]] = {}
-    for theme, subthemes in syllabus_slice.items():
-        if isinstance(subthemes, dict):
-            for subtheme, keywords in subthemes.items():
-                if isinstance(keywords, list):
-                    flat[f"{theme} > {subtheme}"] = keywords
-        elif isinstance(subthemes, list):
-            flat[theme] = subthemes
-    compact = json.dumps(flat, ensure_ascii=False)
+    # Pass nested dict so LLM sees hierarchy explicitly
+    compact = json.dumps(syllabus_slice, ensure_ascii=False)
 
     q_list = [{"question_number": q["question_number"], "english": q.get("english", "")}
               for q in questions]
     prompt = (
         f"You are tagging TNPSC exam questions to their syllabus topics.\n\n"
         f"Paper: {paper}, Unit {unit_number}\n"
-        f"Syllabus (theme > subtheme -> keywords):\n{compact}\n\n"
+        f"Syllabus structure: {{theme: {{subtheme: [keywords]}}}}\n"
+        f"{compact}\n\n"
         f"Questions:\n{json.dumps(q_list, ensure_ascii=False)}\n\n"
-        "For each question identify the closest theme, subtheme, and keyword.\n"
-        "theme and subtheme must match keys in the syllabus exactly.\n"
+        "For each question return the closest match:\n"
+        "- theme: a top-level key from the syllabus above\n"
+        "- subtheme: a key nested under that theme\n"
+        "- keyword: one item from that subtheme's keyword list\n"
         'Return ONLY a JSON array: [{"question_number":N,"theme":"...","subtheme":"...","keyword":"..."}]'
     )
     resp = client.messages.create(
@@ -141,6 +137,13 @@ def tag_batch_with_llm(
     return _extract_json_array(raw, f"{paper} Unit {unit_number}")
 
 
+def _clean_tag(value: str) -> str:
+    """Strip composite 'theme > subtheme' artifact if LLM echoes the flattened key."""
+    if " > " in value:
+        return value.split(" > ")[0].strip()
+    return value
+
+
 def merge_tags(questions: list[dict], tag_map: dict, syllabus: dict) -> list[dict]:
     for q in questions:
         key = (q["paper"], q.get("unit_number") or "unknown", q["question_number"])
@@ -148,7 +151,7 @@ def merge_tags(questions: list[dict], tag_map: dict, syllabus: dict) -> list[dic
         q["tags"] = {
             "paper":    q["paper"],
             "unit":     _unit_full_name(syllabus, q["paper"], q.get("unit_number") or ""),
-            "theme":    raw.get("theme", ""),
+            "theme":    _clean_tag(raw.get("theme", "")),
             "subtheme": raw.get("subtheme", ""),
             "keyword":  raw.get("keyword", ""),
         }
