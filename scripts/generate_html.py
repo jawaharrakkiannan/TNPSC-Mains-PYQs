@@ -121,6 +121,7 @@ function cascadeFromUnit(base){
   cascadeFromTheme(sub);
 }
 
+
 function cascadeFromTheme(sub){
   if(!sub){
     const p=document.getElementById('f-paper').value;
@@ -128,7 +129,20 @@ function cascadeFromTheme(sub){
     sub=QUESTIONS.filter(q=>(!p||q.paper===p)&&(!u||q.tags?.unit===u));
   }
   const t=document.getElementById('f-theme').value;
-  const leaf=sub.filter(q=>!t||q.tags?.theme===t);
+  const mid=sub.filter(q=>!t||q.tags?.theme===t);
+  repop('f-subtheme',[...new Set(mid.map(q=>q.tags?.subtheme).filter(Boolean))].sort(),'All Subthemes');
+  cascadeFromSubtheme(mid);
+}
+
+function cascadeFromSubtheme(mid){
+  if(!mid){
+    const p=document.getElementById('f-paper').value;
+    const u=document.getElementById('f-unit').value;
+    const t=document.getElementById('f-theme').value;
+    mid=QUESTIONS.filter(q=>(!p||q.paper===p)&&(!u||q.tags?.unit===u)&&(!t||q.tags?.theme===t));
+  }
+  const st=document.getElementById('f-subtheme').value;
+  const leaf=mid.filter(q=>!st||q.tags?.subtheme===st);
   repop('f-keyword',[...new Set(leaf.map(q=>q.tags?.keyword).filter(Boolean))].sort(),'All Keywords');
   applyFilters();
 }
@@ -136,13 +150,14 @@ function cascadeFromTheme(sub){
 function applyFilters(){
   const g=id=>document.getElementById(id).value;
   filtered=QUESTIONS.filter(q=>
-    (!g('f-paper')  ||q.paper===g('f-paper'))&&
-    (!g('f-year')   ||q.year==g('f-year'))&&
-    (!g('f-unit')   ||q.tags?.unit===g('f-unit'))&&
-    (!g('f-theme')  ||q.tags?.theme===g('f-theme'))&&
-    (!g('f-keyword')||q.tags?.keyword===g('f-keyword'))&&
-    (!g('f-section')||q.section===g('f-section'))&&
-    (!g('f-marks')  ||q.marks==g('f-marks'))
+    (!g('f-paper')   ||q.paper===g('f-paper'))&&
+    (!g('f-year')    ||q.year==g('f-year'))&&
+    (!g('f-unit')    ||q.tags?.unit===g('f-unit'))&&
+    (!g('f-theme')   ||q.tags?.theme===g('f-theme'))&&
+    (!g('f-subtheme')||q.tags?.subtheme===g('f-subtheme'))&&
+    (!g('f-keyword') ||q.tags?.keyword===g('f-keyword'))&&
+    (!g('f-section') ||q.section===g('f-section'))&&
+    (!g('f-marks')   ||q.marks==g('f-marks'))
   );
   document.getElementById('result-ct').textContent=filtered.length+' questions';
   if(view==='questions')renderQs();else renderFreq();
@@ -178,8 +193,8 @@ function renderQs(){
       ${q.tamil ?`<p class="qt qt-ta">${esc(q.tamil)}</p>`:''}
       ${q.english?`<p class="qt qt-en">${esc(q.english)}</p>`:''}
       <div class="tags">
-        ${q.tags?.heading ?`<span class="tag">${esc(q.tags.heading)}</span>`:''}
-        ${q.tags?.theme   ?`<span class="tag tag-th">${esc(q.tags.theme)}</span>`:''}
+        ${q.tags?.theme   ?`<span class="tag">${esc(q.tags.theme)}</span>`:''}
+        ${q.tags?.subtheme?`<span class="tag tag-th">${esc(q.tags.subtheme)}</span>`:''}
         ${q.tags?.keyword ?`<span class="tag tag-kw">${esc(q.tags.keyword)}</span>`:''}
       </div>
     </div>`).join('');
@@ -213,7 +228,9 @@ function renderFreqTbl(id,keyFn,label){
 function filterByKY(key,year){
   if(year)document.getElementById('f-year').value=year;
   const thOpts=[...document.getElementById('f-theme').options].map(o=>o.value);
+  const stOpts=[...document.getElementById('f-subtheme').options].map(o=>o.value);
   if(thOpts.includes(key))document.getElementById('f-theme').value=key;
+  else if(stOpts.includes(key))document.getElementById('f-subtheme').value=key;
   else document.getElementById('f-keyword').value=key;
   switchView('questions');applyFilters();
 }
@@ -258,6 +275,8 @@ def generate_html(questions: list[dict]) -> str:
     <select id="f-unit" onchange="cascadeFromUnit()"><option value="">All Units</option></select>
     <label class="fl">Theme</label>
     <select id="f-theme" onchange="cascadeFromTheme()"><option value="">All Themes</option></select>
+    <label class="fl">Subtheme</label>
+    <select id="f-subtheme" onchange="cascadeFromSubtheme()"><option value="">All Subthemes</option></select>
     <label class="fl">Keyword</label>
     <select id="f-keyword" onchange="applyFilters()"><option value="">All Keywords</option></select>
     <label class="fl">Section</label>

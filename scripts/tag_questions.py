@@ -27,11 +27,10 @@ def form_batches(questions: list[dict]) -> list[dict]:
 
 
 _ROMAN_VAL = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6}
-_PAPER_OFFSET = 1  # question "Paper N" maps to syllabus "Paper N+1"
 
 
 def _roman_num(text: str) -> int | None:
-    m = re.search(r"\bPaper\s+([IVX]+)\b", text, re.IGNORECASE)
+    m = re.search(r"\b(?:Paper|General\s+Studies)\s+([IVX]+)\b", text, re.IGNORECASE)
     if m:
         return _ROMAN_VAL.get(m.group(1).upper())
     return None
@@ -40,7 +39,11 @@ def _roman_num(text: str) -> int | None:
 def _paper_matches(paper: str, p_key: str) -> bool:
     n1, n2 = _roman_num(paper), _roman_num(p_key)
     if n1 is not None and n2 is not None:
-        return n1 + _PAPER_OFFSET == n2
+        # New syllabus format "General Studies I" = question "Paper I" — direct match
+        # Old syllabus format "Paper II – GS I" was offset +1 from question "Paper I"
+        if re.search(r"\bGeneral\s+Studies\b", p_key, re.IGNORECASE):
+            return n1 == n2
+        return n1 + 1 == n2  # legacy offset fallback
     return paper.replace(" ", "").lower() == p_key.replace(" ", "").lower()
 
 
@@ -107,20 +110,27 @@ def tag_batch_with_llm(
     unit_number: str,
     client: anthropic.Anthropic,
 ) -> list[dict]:
-    compact = json.dumps(
-        {h: [kw for t in v.get("themes", []) for kw in t["keywords"]]
-         for h, v in syllabus_slice.items()},
-        ensure_ascii=False,
-    )
+    # syllabus_slice structure: {theme: {subtheme: [keywords]}}
+    flat: dict[str, list[str]] = {}
+    for theme, subthemes in syllabus_slice.items():
+        if isinstance(subthemes, dict):
+            for subtheme, keywords in subthemes.items():
+                if isinstance(keywords, list):
+                    flat[f"{theme} > {subtheme}"] = keywords
+        elif isinstance(subthemes, list):
+            flat[theme] = subthemes
+    compact = json.dumps(flat, ensure_ascii=False)
+
     q_list = [{"question_number": q["question_number"], "english": q.get("english", "")}
               for q in questions]
     prompt = (
         f"You are tagging TNPSC exam questions to their syllabus topics.\n\n"
         f"Paper: {paper}, Unit {unit_number}\n"
-        f"Syllabus (heading -> keywords):\n{compact}\n\n"
+        f"Syllabus (theme > subtheme -> keywords):\n{compact}\n\n"
         f"Questions:\n{json.dumps(q_list, ensure_ascii=False)}\n\n"
-        "For each question identify the closest heading, theme, and keyword.\n"
-        'Return ONLY a JSON array: [{"question_number":N,"heading":"...","theme":"...","keyword":"..."}]'
+        "For each question identify the closest theme, subtheme, and keyword.\n"
+        "theme and subtheme must match keys in the syllabus exactly.\n"
+        'Return ONLY a JSON array: [{"question_number":N,"theme":"...","subtheme":"...","keyword":"..."}]'
     )
     resp = client.messages.create(
         model="claude-sonnet-4-6",
@@ -136,11 +146,11 @@ def merge_tags(questions: list[dict], tag_map: dict, syllabus: dict) -> list[dic
         key = (q["paper"], q.get("unit_number") or "unknown", q["question_number"])
         raw = tag_map.get(key, {})
         q["tags"] = {
-            "paper":   q["paper"],
-            "unit":    _unit_full_name(syllabus, q["paper"], q.get("unit_number") or ""),
-            "heading": raw.get("heading", ""),
-            "theme":   raw.get("theme", ""),
-            "keyword": raw.get("keyword", ""),
+            "paper":    q["paper"],
+            "unit":     _unit_full_name(syllabus, q["paper"], q.get("unit_number") or ""),
+            "theme":    raw.get("theme", ""),
+            "subtheme": raw.get("subtheme", ""),
+            "keyword":  raw.get("keyword", ""),
         }
     return questions
 
