@@ -171,7 +171,30 @@ def get_or_create_ocr_cache(
 def parse_markdown_to_questions(
     markdown: str, paper: str, year: int, client: Mistral
 ) -> list[dict]:
-    raise NotImplementedError
+    prompt = _PARSE_PROMPT.format(paper=paper, year=year, markdown=markdown)
+    resp = client.chat.complete(
+        model=MISTRAL_PARSE_MODEL,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    raw = resp.choices[0].message.content.strip()
+    items = _extract_json_array(raw, f"{paper} {year}")
+    return [
+        {
+            "year":            year,
+            "paper":           paper,
+            "unit_number":     item.get("unit_number"),
+            "unit_name":       None,
+            "section":         item.get("section"),
+            "question_number": item.get("question_number"),
+            "marks":           item.get("marks"),
+            "word_limit":      item.get("word_limit"),
+            "tamil":           item.get("tamil", ""),
+            "english":         item.get("english", ""),
+            "sub_questions":   [],
+            "noise_flagged":   False,
+        }
+        for item in items
+    ]
 
 
 def main(years: list[int] | None = None, reocr: bool = False) -> None:

@@ -175,3 +175,70 @@ def test_get_or_create_cache_reocr_bypasses_cache(tmp_path, monkeypatch):
     result = get_or_create_ocr_cache("Paper I", 2024, str(pdf), client, reocr=True)
     assert result == "fresh markdown"
     client.ocr.process.assert_called_once()
+
+
+# --- Parse Pass ---
+
+from scripts.extract_questions import parse_markdown_to_questions
+
+
+def _make_chat_client(json_response: str) -> MagicMock:
+    msg = MagicMock(content=json_response)
+    choice = MagicMock(message=msg)
+    resp = MagicMock(choices=[choice])
+    client = MagicMock()
+    client.chat.complete.return_value = resp
+    return client
+
+
+def test_parse_markdown_injects_paper_and_year():
+    items = '[{"question_number":1,"unit_number":"I","section":"A","marks":3,"word_limit":30,"tamil":"தமிழ்","english":"Discuss the significance."}]'
+    client = _make_chat_client(items)
+    qs = parse_markdown_to_questions("## markdown", "Paper I", 2024, client)
+    assert qs[0]["paper"] == "Paper I"
+    assert qs[0]["year"] == 2024
+
+
+def test_parse_markdown_sets_fixed_fields():
+    items = '[{"question_number":1,"unit_number":"II","section":"B","marks":10,"word_limit":150,"tamil":"","english":"Explain the role of RBI in monetary policy."}]'
+    client = _make_chat_client(items)
+    qs = parse_markdown_to_questions("## md", "Paper III", 2023, client)
+    q = qs[0]
+    assert q["unit_name"] is None
+    assert q["sub_questions"] == []
+    assert q["noise_flagged"] is False
+
+
+def test_parse_markdown_preserves_tamil():
+    items = '[{"question_number":1,"unit_number":"I","section":"A","marks":3,"word_limit":30,"tamil":"இந்தியாவின் தேசிய கொடி","english":"Examine the National Flag code."}]'
+    client = _make_chat_client(items)
+    qs = parse_markdown_to_questions("## md", "Paper II", 2024, client)
+    assert "இந்தியாவின்" in qs[0]["tamil"]
+
+
+def test_parse_markdown_handles_llm_explanation_wrapper():
+    wrapped = 'Here is the extracted data:\n[{"question_number":1,"unit_number":"I","section":"A","marks":3,"word_limit":30,"tamil":"","english":"What is the significance of monsoon?"}]\nEnd.'
+    client = _make_chat_client(wrapped)
+    qs = parse_markdown_to_questions("## md", "Paper III", 2019, client)
+    assert len(qs) == 1
+    assert qs[0]["question_number"] == 1
+
+
+def test_parse_markdown_null_fields_preserved():
+    items = '[{"question_number":5,"unit_number":null,"section":null,"marks":null,"word_limit":null,"tamil":"","english":"Explain the Western Ghats biodiversity."}]'
+    client = _make_chat_client(items)
+    qs = parse_markdown_to_questions("## md", "Paper III", 2017, client)
+    q = qs[0]
+    assert q["unit_number"] is None
+    assert q["section"] is None
+    assert q["marks"] is None
+    assert q["word_limit"] is None
+
+
+def test_parse_markdown_uses_correct_model():
+    from scripts.extract_questions import MISTRAL_PARSE_MODEL
+    items = '[{"question_number":1,"unit_number":"I","section":"A","marks":3,"word_limit":30,"tamil":"","english":"Long enough question text here."}]'
+    client = _make_chat_client(items)
+    parse_markdown_to_questions("## md", "Paper I", 2024, client)
+    call_args = client.chat.complete.call_args
+    assert call_args.kwargs["model"] == MISTRAL_PARSE_MODEL
