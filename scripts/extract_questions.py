@@ -136,7 +136,7 @@ def _extract_json_array(raw: str, context: str) -> list:
 
 
 def _cache_path(paper: str, year: int) -> str:
-    return f"data/ocr_cache/{paper.replace(' ', '-')}_{year}.md"
+    return f"{OCR_CACHE_DIR}/{paper.replace(' ', '-')}_{year}.md"
 
 
 def call_mistral_ocr(pdf_path: str, client: Mistral) -> str:
