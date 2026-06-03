@@ -140,13 +140,30 @@ def _cache_path(paper: str, year: int) -> str:
 
 
 def call_mistral_ocr(pdf_path: str, client: Mistral) -> str:
-    raise NotImplementedError
+    with open(pdf_path, "rb") as f:
+        pdf_b64 = base64.b64encode(f.read()).decode()
+    response = client.ocr.process(
+        model=MISTRAL_OCR_MODEL,
+        document={
+            "type": "document_url",
+            "document_url": f"data:application/pdf;base64,{pdf_b64}",
+        },
+    )
+    return "\n\n".join(page.markdown for page in response.pages)
 
 
 def get_or_create_ocr_cache(
     paper: str, year: int, pdf_path: str, client: Mistral, reocr: bool = False
 ) -> str:
-    raise NotImplementedError
+    path = _cache_path(paper, year)
+    if os.path.exists(path) and not reocr:
+        with open(path, encoding="utf-8") as f:
+            return f.read()
+    markdown = call_mistral_ocr(pdf_path, client)
+    os.makedirs(OCR_CACHE_DIR, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(markdown)
+    return markdown
 
 
 def parse_markdown_to_questions(

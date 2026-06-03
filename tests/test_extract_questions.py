@@ -106,3 +106,72 @@ def test_cache_path_format():
 def test_cache_path_paper_ii():
     path = _cache_path("Paper II", 2019)
     assert path == "data/ocr_cache/Paper-II_2019.md"
+
+
+# --- OCR Pass ---
+
+import os
+import tempfile
+from unittest.mock import MagicMock, patch, mock_open
+from scripts.extract_questions import call_mistral_ocr, get_or_create_ocr_cache
+
+
+def _make_ocr_client(markdown_pages: list[str]) -> MagicMock:
+    pages = [MagicMock(markdown=m) for m in markdown_pages]
+    response = MagicMock(pages=pages)
+    client = MagicMock()
+    client.ocr.process.return_value = response
+    return client
+
+
+def test_call_mistral_ocr_joins_pages(tmp_path):
+    pdf = tmp_path / "test.pdf"
+    pdf.write_bytes(b"%PDF fake content")
+    client = _make_ocr_client(["## Page 1\nQuestion 1", "## Page 2\nQuestion 2"])
+    result = call_mistral_ocr(str(pdf), client)
+    assert result == "## Page 1\nQuestion 1\n\n## Page 2\nQuestion 2"
+
+
+def test_call_mistral_ocr_sends_base64(tmp_path):
+    import base64
+    pdf = tmp_path / "test.pdf"
+    content = b"%PDF test"
+    pdf.write_bytes(content)
+    client = _make_ocr_client(["markdown"])
+    call_mistral_ocr(str(pdf), client)
+    call_args = client.ocr.process.call_args
+    doc = call_args.kwargs["document"]
+    expected_b64 = base64.b64encode(content).decode()
+    assert expected_b64 in doc["document_url"]
+
+
+def test_get_or_create_cache_hit_skips_api(tmp_path, monkeypatch):
+    monkeypatch.setattr("scripts.extract_questions.OCR_CACHE_DIR", str(tmp_path))
+    cache = tmp_path / "Paper-I_2024.md"
+    cache.write_text("cached markdown", encoding="utf-8")
+    client = MagicMock()
+    result = get_or_create_ocr_cache("Paper I", 2024, "irrelevant.pdf", client, reocr=False)
+    assert result == "cached markdown"
+    client.ocr.process.assert_not_called()
+
+
+def test_get_or_create_cache_miss_calls_api(tmp_path, monkeypatch):
+    monkeypatch.setattr("scripts.extract_questions.OCR_CACHE_DIR", str(tmp_path))
+    pdf = tmp_path / "test.pdf"
+    pdf.write_bytes(b"%PDF fake")
+    client = _make_ocr_client(["fresh markdown"])
+    result = get_or_create_ocr_cache("Paper I", 2024, str(pdf), client, reocr=False)
+    assert result == "fresh markdown"
+    assert (tmp_path / "Paper-I_2024.md").read_text(encoding="utf-8") == "fresh markdown"
+
+
+def test_get_or_create_cache_reocr_bypasses_cache(tmp_path, monkeypatch):
+    monkeypatch.setattr("scripts.extract_questions.OCR_CACHE_DIR", str(tmp_path))
+    cache = tmp_path / "Paper-I_2024.md"
+    cache.write_text("stale markdown", encoding="utf-8")
+    pdf = tmp_path / "test.pdf"
+    pdf.write_bytes(b"%PDF fake")
+    client = _make_ocr_client(["fresh markdown"])
+    result = get_or_create_ocr_cache("Paper I", 2024, str(pdf), client, reocr=True)
+    assert result == "fresh markdown"
+    client.ocr.process.assert_called_once()
