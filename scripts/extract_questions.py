@@ -81,7 +81,7 @@ def is_math_aptitude(english: str) -> bool:
     return bool(_MATH_APT_RE.search(english or ""))
 
 
-def parse_marks_and_wordlimit(instr: str) -> tuple[int | None, int | None]:
+def parse_marks_and_wordlimit(instr: str) -> tuple[int | None, int | None]:  # retained for potential reuse
     wm = _WORDS_RE.search(instr)
     mm = _MARKS_RE.search(instr)
     nm = _MARKS_N_RE.search(instr)

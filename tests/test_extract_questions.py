@@ -110,8 +110,6 @@ def test_cache_path_paper_ii():
 
 # --- OCR Pass ---
 
-import os
-import tempfile
 from unittest.mock import MagicMock
 from scripts.extract_questions import call_mistral_ocr, get_or_create_ocr_cache
 
