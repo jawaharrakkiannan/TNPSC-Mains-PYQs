@@ -1,4 +1,5 @@
 data/*.json
+data/ocr_cache/
 output/
 __pycache__/
 *.pyc
