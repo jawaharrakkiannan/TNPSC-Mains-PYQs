@@ -25,6 +25,7 @@ python run_pipeline.py
 Partial re-extraction (e.g. after adding new PDFs for specific years):
 ```bash
 python scripts/extract_questions.py --years 2024 2025
+python scripts/extract_questions.py --years 2022 --reocr  # force re-OCR even if cache exists
 ```
 
 ## Key Files
@@ -36,19 +37,25 @@ python scripts/extract_questions.py --years 2024 2025
 | `Mains_PYQs/Paper-III/` | Source PDFs |
 | `Mains_PYQs/Group_I_Mains_Syllabus.pdf` | Official syllabus PDF |
 | `data/syllabus_themes.json` | LLM-structured syllabus (paper→unit→heading→themes) |
+| `data/ocr_cache/` | Mistral OCR markdown cache (one `.md` per PDF, gitignored) |
 | `data/questions_raw.json` | Extracted questions (no tags) |
 | `data/questions_tagged.json` | Questions with syllabus tags |
 | `output/viewer.html` | Self-contained browsable viewer |
 | `scripts/review_server.py` | Flask server for correcting extractions (port 5000) |
 
-## PDF Encoding Issue
+## Extraction (Step 2)
 
-PDFs from 2019 onwards use **SHREE-TAM-0802** legacy Tamil font (Type1, no proper ToUnicode map). Tamil text cannot be extracted as Unicode via text layer — Tesseract OCR is used instead.
+`extract_questions.py` uses a two-pass Mistral OCR approach for all PDFs:
 
-- Tesseract binary: `C:/Program Files/Tesseract-OCR/tesseract.exe`
-- Tamil tessdata: `~/tam.traineddata` (downloaded from tesseract-ocr/tessdata)
-- `TESSDATA_PREFIX` env var must point to `~` (where `tam.traineddata` lives)
-- 2022 PDFs also use Shree font — re-extract if adding them: `--years 2022`
+**Pass 1 — OCR:** PDF → `mistral-ocr-2512` → markdown cached to `data/ocr_cache/Paper-I_YYYY.md`
+- Cache is reused on subsequent runs; bypass with `--reocr`
+
+**Pass 2 — Parse:** cached markdown → `mistral-large-2512` → question dicts
+- LLM extracts both Tamil and English text, unit/section headers, marks/word limits
+
+`MISTRAL_API_KEY` required (see Environment section below).
+
+> **Previous approach** (PyMuPDF + Tesseract) removed. Tesseract is no longer needed.
 
 ## Syllabus Paper Numbering Offset
 
@@ -63,7 +70,9 @@ Syllabus papers:
 
 ## LLM Usage
 
-Both `extract_syllabus.py` and `tag_questions.py` call `claude-sonnet-4-6` via `ANTHROPIC_API_KEY`.
+`extract_questions.py` calls `mistral-ocr-2512` and `mistral-large-2512` via `MISTRAL_API_KEY`.
+
+`extract_syllabus.py` and `tag_questions.py` call `claude-sonnet-4-6` via `ANTHROPIC_API_KEY`.
 
 - Syllabus: groups raw keywords into themes per heading
 - Tagging: assigns heading/theme/keyword per question using syllabus slice
@@ -89,14 +98,14 @@ Loads `data/questions_corrected.json` (falls back to `questions_raw.json`). Edit
 
 ## Environment
 
-`ANTHROPIC_API_KEY` required. Store in `.env` (loaded manually in pipeline scripts — no dotenv dependency).
+Both keys required. Store in `.env` (no dotenv dependency — set env vars before running).
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
+MISTRAL_API_KEY=...
 ```
 
 ## Known Gaps
 
-- **2022** not in dataset — PDFs exist (`Mains_PYQs/Paper-*/2022.pdf`) but not yet extracted
-- Tamil OCR quality varies: 64–95% coverage depending on year; some questions get section-header noise in Tamil field
+- **2022** not in dataset — PDFs exist (`Mains_PYQs/Paper-*/2022.pdf`) but not yet extracted. Run: `python scripts/extract_questions.py --years 2022`
 - `tags.heading` for Paper III questions uses `(75 marks)` / `(100 marks)` as heading keys (PDF bold text artifact from the syllabus) — cosmetic issue only
