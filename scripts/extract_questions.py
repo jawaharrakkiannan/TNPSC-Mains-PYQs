@@ -198,7 +198,53 @@ def parse_markdown_to_questions(
 
 
 def main(years: list[int] | None = None, reocr: bool = False) -> None:
-    raise NotImplementedError
+    client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
+    new_questions: list[dict] = []
+
+    for paper, folder in PAPER_DIRS.items():
+        if not os.path.isdir(folder):
+            print(f"  Warning: {folder} not found, skipping", flush=True)
+            continue
+        pdfs = sorted(
+            f for f in os.listdir(folder)
+            if f.endswith(".pdf") and f[:-4].isdigit()
+        )
+        if years:
+            pdfs = [f for f in pdfs if int(f[:-4]) in years]
+        print(f"\n[{paper}] {len(pdfs)} PDFs", flush=True)
+        for fname in pdfs:
+            year = int(fname[:-4])
+            pdf_path = os.path.join(folder, fname)
+            print(f"  {year}...", end=" ", flush=True)
+            try:
+                markdown = get_or_create_ocr_cache(paper, year, pdf_path, client, reocr)
+                qs = parse_markdown_to_questions(markdown, paper, year, client)
+                before = len(qs)
+                qs = [q for q in qs if not is_math_aptitude(q.get("english", ""))]
+                if before != len(qs):
+                    print(f"[filtered {before - len(qs)} math]", end=" ", flush=True)
+                new_questions.extend(qs)
+                print(f"{len(qs)} Qs", flush=True)
+            except Exception as e:
+                print(f"ERROR: {e}", flush=True)
+
+    if years and os.path.exists(OUTPUT_PATH):
+        years_set = set(years)
+        with open(OUTPUT_PATH, encoding="utf-8") as f:
+            existing = json.load(f)
+        kept = [q for q in existing if q.get("year") not in years_set]
+        all_questions = kept + new_questions
+        print(f"\nMerged: kept {len(kept)} + {len(new_questions)} new = {len(all_questions)} total")
+    else:
+        all_questions = new_questions
+
+    all_questions = flag_noise_questions(all_questions)
+    flagged = sum(1 for q in all_questions if q["noise_flagged"])
+
+    os.makedirs("data", exist_ok=True)
+    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+        json.dump(all_questions, f, ensure_ascii=False, indent=2)
+    print(f"Written {len(all_questions)} questions ({flagged} flagged) to {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
