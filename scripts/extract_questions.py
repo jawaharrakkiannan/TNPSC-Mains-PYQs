@@ -149,6 +149,8 @@ def call_mistral_ocr(pdf_path: str, client: Mistral) -> str:
             "document_url": f"data:application/pdf;base64,{pdf_b64}",
         },
     )
+    if not response.pages:
+        raise ValueError(f"Mistral OCR returned no pages for {pdf_path}")
     return "\n\n".join(page.markdown for page in response.pages)
 
 
