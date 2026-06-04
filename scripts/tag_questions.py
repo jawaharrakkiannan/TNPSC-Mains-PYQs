@@ -3,14 +3,14 @@ import json
 import os
 import re
 import sys
-import anthropic
+from openai import OpenAI
 
 INPUT_PATH    = "data/questions_corrected.json"
 FALLBACK_PATH = "data/questions_raw.json"
 SYLLABUS_PATH = "data/syllabus_themes.json"
 OUTPUT_PATH   = "data/questions_tagged.json"
 
-
+MODEL = "gpt-4o-mini"
 _BATCH_SIZE = 15
 
 
@@ -30,7 +30,11 @@ _ROMAN_VAL = {"I": 1, "II": 2, "III": 3, "IV": 4, "V": 5, "VI": 6}
 
 
 def _roman_num(text: str) -> int | None:
-    m = re.search(r"\b(?:Paper|General\s+Studies)\s+([IVX]+)\b", text, re.IGNORECASE)
+    # Prefer "General Studies N" number when both appear (e.g. "Paper II General Studies I")
+    m = re.search(r"\bGeneral\s+Studies\s+([IVX]+)\b", text, re.IGNORECASE)
+    if m:
+        return _ROMAN_VAL.get(m.group(1).upper())
+    m = re.search(r"\bPaper\s+([IVX]+)\b", text, re.IGNORECASE)
     if m:
         return _ROMAN_VAL.get(m.group(1).upper())
     return None
@@ -108,12 +112,9 @@ def tag_batch_with_llm(
     syllabus_slice: dict,
     paper: str,
     unit_number: str,
-    client: anthropic.Anthropic,
+    client: OpenAI,
 ) -> list[dict]:
-    # syllabus_slice structure: {theme: {subtheme: [keywords]}}
-    # Pass nested dict so LLM sees hierarchy explicitly
     compact = json.dumps(syllabus_slice, ensure_ascii=False)
-
     q_list = [{"question_number": q["question_number"], "english": q.get("english", "")}
               for q in questions]
     prompt = (
@@ -128,12 +129,12 @@ def tag_batch_with_llm(
         "- keyword: one item from that subtheme's keyword list\n"
         'Return ONLY a JSON array: [{"question_number":N,"theme":"...","subtheme":"...","keyword":"..."}]'
     )
-    resp = client.messages.create(
-        model="claude-sonnet-4-6",
+    resp = client.chat.completions.create(
+        model=MODEL,
         max_tokens=4096,
         messages=[{"role": "user", "content": prompt}],
     )
-    raw = resp.content[0].text.strip()
+    raw = resp.choices[0].message.content.strip()
     return _extract_json_array(raw, f"{paper} Unit {unit_number}")
 
 
@@ -151,15 +152,21 @@ def merge_tags(questions: list[dict], tag_map: dict, syllabus: dict) -> list[dic
         q["tags"] = {
             "paper":    q["paper"],
             "unit":     _unit_full_name(syllabus, q["paper"], q.get("unit_number") or ""),
-            "theme":    _clean_tag(raw.get("theme", "")),
-            "subtheme": raw.get("subtheme", ""),
-            "keyword":  raw.get("keyword", ""),
+            "theme":    _clean_tag(raw.get("theme") or ""),
+            "subtheme": raw.get("subtheme") or "",
+            "keyword":  raw.get("keyword") or "",
         }
     return questions
 
 
 def main() -> None:
-    client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--papers", nargs="+", metavar="PAPER",
+                        help="Re-tag only these papers, e.g. --papers 'Paper III'")
+    args = parser.parse_args()
+
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
     src = INPUT_PATH if os.path.exists(INPUT_PATH) else FALLBACK_PATH
     print(f"Loading questions from {src}...", flush=True)
     with open(src, encoding="utf-8") as f:
@@ -167,9 +174,25 @@ def main() -> None:
     with open(SYLLABUS_PATH, encoding="utf-8") as f:
         syllabus = json.load(f)
 
-    batches = form_batches(questions)
-    print(f"{len(batches)} batches to tag", flush=True)
+    # When re-tagging specific papers, seed tag_map from existing tagged file
     tag_map: dict = {}
+    if args.papers and os.path.exists(OUTPUT_PATH):
+        with open(OUTPUT_PATH, encoding="utf-8") as f:
+            existing = json.load(f)
+        for q in existing:
+            if q["paper"] not in args.papers:
+                raw = q.get("tags", {})
+                tag_map[(q["paper"], q.get("unit_number") or "unknown", q["question_number"])] = {
+                    "question_number": q["question_number"],
+                    "theme":    raw.get("theme") or "",
+                    "subtheme": raw.get("subtheme") or "",
+                    "keyword":  raw.get("keyword") or "",
+                }
+
+    batches = form_batches(questions)
+    if args.papers:
+        batches = [b for b in batches if b["paper"] in args.papers]
+    print(f"{len(batches)} batches to tag", flush=True)
 
     for i, batch in enumerate(batches, 1):
         paper, unit = batch["paper"], batch["unit_number"]
@@ -178,7 +201,13 @@ def main() -> None:
         try:
             tags = tag_batch_with_llm(batch["questions"], sl, paper, unit, client)
             for t in tags:
-                tag_map[(paper, unit, t["question_number"])] = t
+                qn = t["question_number"]
+                if isinstance(qn, str):
+                    try:
+                        qn = int(qn)
+                    except ValueError:
+                        pass
+                tag_map[(paper, unit, qn)] = t
             print("ok", flush=True)
         except Exception as e:
             print(f"ERROR: {e}", flush=True)

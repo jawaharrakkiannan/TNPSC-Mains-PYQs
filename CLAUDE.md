@@ -72,7 +72,9 @@ Syllabus papers:
 
 `extract_questions.py` calls `mistral-ocr-2512` and `mistral-large-2512` via `MISTRAL_API_KEY`.
 
-`extract_syllabus.py` and `tag_questions.py` call `claude-sonnet-4-6` via `ANTHROPIC_API_KEY`.
+`extract_syllabus.py` calls `claude-sonnet-4-6` via `ANTHROPIC_API_KEY`.
+
+`tag_questions.py` calls `gpt-4o-mini` via `OPENAI_API_KEY`.
 
 - Syllabus: groups raw keywords into themes per heading
 - Tagging: assigns heading/theme/keyword per question using syllabus slice
@@ -98,11 +100,12 @@ Loads `data/questions_corrected.json` (falls back to `questions_raw.json`). Edit
 
 ## Environment
 
-Both keys required. Store in `.env` (no dotenv dependency — set env vars before running).
+Keys required. Store in `.env` (no dotenv dependency — set env vars before running).
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-MISTRAL_API_KEY=...
+ANTHROPIC_API_KEY=sk-ant-...   # extract_syllabus.py only
+MISTRAL_API_KEY=...             # extract_questions.py
+OPENAI_API_KEY=sk-...           # tag_questions.py
 ```
 
 ## Known Gaps

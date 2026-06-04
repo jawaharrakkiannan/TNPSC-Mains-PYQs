@@ -1,7 +1,7 @@
 data/*.json
 data/ocr_cache/
-output/
 __pycache__/
 *.pyc
 .env
 .pytest_cache/
+.coverage

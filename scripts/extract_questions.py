@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import time
 
 from mistralai.client import Mistral
 
@@ -16,6 +17,13 @@ PAPER_DIRS    = {
 }
 MISTRAL_OCR_MODEL   = "mistral-ocr-2512"
 MISTRAL_PARSE_MODEL = "mistral-large-2512"
+
+# Only process exams from this year onwards
+MIN_YEAR = 2019
+
+# Paper I Unit III = Ethics & Integrity, added only from 2024 onwards.
+# Earlier years had Aptitude/Mental Ability in that slot — exclude.
+_P1_ETHICS_FROM = 2024
 
 _MARKS_MAP  = {"three": 3, "five": 5, "ten": 10, "fifteen": 15, "twenty": 20}
 _WORDS_RE   = re.compile(r"(\d+)\s+words", re.IGNORECASE)
@@ -142,16 +150,25 @@ def _cache_path(paper: str, year: int) -> str:
 def call_mistral_ocr(pdf_path: str, client: Mistral) -> str:
     with open(pdf_path, "rb") as f:
         pdf_b64 = base64.b64encode(f.read()).decode()
-    response = client.ocr.process(
-        model=MISTRAL_OCR_MODEL,
-        document={
-            "type": "document_url",
-            "document_url": f"data:application/pdf;base64,{pdf_b64}",
-        },
-    )
-    if not response.pages:
-        raise ValueError(f"Mistral OCR returned no pages for {pdf_path}")
-    return "\n\n".join(page.markdown for page in response.pages)
+    last_exc: Exception | None = None
+    for attempt in range(1, 4):
+        try:
+            response = client.ocr.process(
+                model=MISTRAL_OCR_MODEL,
+                document={
+                    "type": "document_url",
+                    "document_url": f"data:application/pdf;base64,{pdf_b64}",
+                },
+            )
+            if not response.pages:
+                raise ValueError(f"Mistral OCR returned no pages for {pdf_path}")
+            return "\n\n".join(page.markdown for page in response.pages)
+        except Exception as exc:
+            last_exc = exc
+            if attempt < 3:
+                print(f"[retry {attempt}/3: {exc}]", end=" ", flush=True)
+                time.sleep(10 * attempt)
+    raise last_exc
 
 
 def get_or_create_ocr_cache(
@@ -198,7 +215,7 @@ def parse_markdown_to_questions(
 
 
 def main(years: list[int] | None = None, reocr: bool = False) -> None:
-    client = Mistral(api_key=os.environ["MISTRAL_API_KEY"])
+    client = Mistral(api_key=os.environ["MISTRAL_API_KEY"], timeout_ms=300_000)
     new_questions: list[dict] = []
 
     for paper, folder in PAPER_DIRS.items():
@@ -207,7 +224,7 @@ def main(years: list[int] | None = None, reocr: bool = False) -> None:
             continue
         pdfs = sorted(
             f for f in os.listdir(folder)
-            if f.endswith(".pdf") and f[:-4].isdigit()
+            if f.endswith(".pdf") and f[:-4].isdigit() and int(f[:-4]) >= MIN_YEAR
         )
         if years:
             pdfs = [f for f in pdfs if int(f[:-4]) in years]
@@ -223,6 +240,12 @@ def main(years: list[int] | None = None, reocr: bool = False) -> None:
                 qs = [q for q in qs if not is_math_aptitude(q.get("english", ""))]
                 if before != len(qs):
                     print(f"[filtered {before - len(qs)} math]", end=" ", flush=True)
+                # Paper I Unit III before 2024 = Aptitude/Mental Ability, not General Studies
+                if paper == "Paper I" and year < _P1_ETHICS_FROM:
+                    before2 = len(qs)
+                    qs = [q for q in qs if q.get("unit_number") != "III"]
+                    if before2 != len(qs):
+                        print(f"[filtered {before2 - len(qs)} pre-2024 Unit III]", end=" ", flush=True)
                 new_questions.extend(qs)
                 print(f"{len(qs)} Qs", flush=True)
             except Exception as e:
@@ -232,7 +255,8 @@ def main(years: list[int] | None = None, reocr: bool = False) -> None:
         years_set = set(years)
         with open(OUTPUT_PATH, encoding="utf-8") as f:
             existing = json.load(f)
-        kept = [q for q in existing if q.get("year") not in years_set]
+        kept = [q for q in existing
+                if q.get("year") not in years_set and q.get("year", 0) >= MIN_YEAR]
         all_questions = kept + new_questions
         print(f"\nMerged: kept {len(kept)} + {len(new_questions)} new = {len(all_questions)} total")
     else:
