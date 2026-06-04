@@ -8,8 +8,34 @@ Drill-down navigator HTML.
 import json
 import os
 
-INPUT_PATH  = "data/questions_tagged.json"
-OUTPUT_PATH = "output/navigator.html"
+INPUT_PATH    = "data/questions_tagged.json"
+SYLLABUS_PATH = "data/syllabus_themes.json"
+OUTPUT_PATH   = "output/navigator.html"
+
+_PAPER_SYL_MAP = {
+    "Paper I":   "Paper II General Studies I",
+    "Paper II":  "Paper III General Studies II",
+    "Paper III": "Paper IV General Studies III",
+}
+
+
+def _build_syllabus_index(syllabus: dict) -> dict:
+    index: dict = {}
+    for q_paper, syl_key in _PAPER_SYL_MAP.items():
+        if syl_key not in syllabus:
+            continue
+        index[q_paper] = {}
+        for unit_key, unit_data in syllabus[syl_key].items():
+            parts = unit_key.split()
+            unit_num = parts[1] if len(parts) > 1 else unit_key
+            themes = {}
+            for theme, val in unit_data.items():
+                if isinstance(val, list):
+                    themes[theme] = {"keywords": val}
+                else:
+                    themes[theme] = {"subthemes": val}
+            index[q_paper][unit_num] = {"unitName": unit_key, "themes": themes}
+    return index
 
 
 _CSS = """\
@@ -180,7 +206,8 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 
 
 _JS = r"""
-const QUESTIONS = __DATA__;
+const QUESTIONS      = __DATA__;
+const SYLLABUS_INDEX = __SYLLABUS_INDEX__;
 
 const PAPER_ORDER = ['Paper I', 'Paper II', 'Paper III'];
 const PAPER_META  = {
@@ -197,6 +224,35 @@ const unitThemes       = {};  // "paper\0unit" -> [theme]
 const themeSubthemes   = {};  // "paper\0unit\0theme" -> [subtheme]
 const subthemeKeywords = {};  // "paper\0unit\0theme\0subtheme" -> [keyword]
 const themeKeywords    = {};  // "paper\0unit\0theme" -> [keyword]  (flat — no subtheme)
+
+/* ── Seed index from syllabus (all themes/subthemes/kws visible even with no questions) ── */
+for (const [paper, units] of Object.entries(SYLLABUS_INDEX)) {
+  for (const [unitNum, unitData] of Object.entries(units)) {
+    if (!paperUnits[paper]) paperUnits[paper] = [];
+    if (!paperUnits[paper].includes(unitNum)) paperUnits[paper].push(unitNum);
+    const uKey = paper + '\x00' + unitNum;
+    if (!unitNames[uKey]) unitNames[uKey] = unitData.unitName;
+    for (const [theme, themeData] of Object.entries(unitData.themes)) {
+      if (!unitThemes[uKey]) unitThemes[uKey] = [];
+      if (!unitThemes[uKey].includes(theme)) unitThemes[uKey].push(theme);
+      const thKey = uKey + '\x00' + theme;
+      if (themeData.subthemes) {
+        for (const [sub, kws] of Object.entries(themeData.subthemes)) {
+          if (!themeSubthemes[thKey]) themeSubthemes[thKey] = [];
+          if (!themeSubthemes[thKey].includes(sub)) themeSubthemes[thKey].push(sub);
+          const stKey = thKey + '\x00' + sub;
+          if (!subthemeKeywords[stKey]) subthemeKeywords[stKey] = [];
+          for (const kw of kws)
+            if (!subthemeKeywords[stKey].includes(kw)) subthemeKeywords[stKey].push(kw);
+        }
+      } else if (themeData.keywords) {
+        if (!themeKeywords[thKey]) themeKeywords[thKey] = [];
+        for (const kw of themeData.keywords)
+          if (!themeKeywords[thKey].includes(kw)) themeKeywords[thKey].push(kw);
+      }
+    }
+  }
+}
 
 for (const q of QUESTIONS) {
   const p  = q.paper;
@@ -412,8 +468,28 @@ function renderDetailQuestions() {
       topHtml += '</tbody></table></div>';
     }
   } else {
-    const kws = themeKeywords[thKey] || [];
-    if (kws.length) {
+    const subs = themeSubthemes[thKey] || [];
+    const kws  = themeKeywords[thKey]  || [];
+    if (subs.length) {
+      topHtml += '<p class="section-label">Subthemes under this theme</p>'
+               + '<div style="overflow-x:auto"><table class="nav-table" style="margin-bottom:2rem">'
+               + '<thead><tr><th>Subtheme</th><th>Keyword</th></tr></thead><tbody>';
+      for (const sub of subs) {
+        const stKws = subthemeKeywords[thKey + '\x00' + sub] || [];
+        if (!stKws.length) {
+          topHtml += '<tr><td class="theme-cell">' + esc(sub) + '</td>'
+                   + '<td class="sub-cell muted">—</td></tr>';
+        } else {
+          for (let i = 0; i < stKws.length; i++) {
+            topHtml += '<tr>';
+            if (i === 0)
+              topHtml += '<td class="theme-cell" rowspan="' + stKws.length + '">' + esc(sub) + '</td>';
+            topHtml += '<td class="sub-cell">' + esc(stKws[i]) + '</td></tr>';
+          }
+        }
+      }
+      topHtml += '</tbody></table></div>';
+    } else if (kws.length) {
       topHtml += '<p class="section-label">Topics under this theme</p>'
                + '<div style="overflow-x:auto"><table class="nav-table" style="margin-bottom:2rem">'
                + '<thead><tr><th>Theme</th><th>Keyword</th></tr></thead><tbody>';
@@ -434,7 +510,7 @@ function renderDetailQuestions() {
     if (q.paper !== _curPaper || q.unit_number !== _curUnit) return false;
     if (!q.tags || q.tags.theme !== _curTheme) return false;
     if (_curSubtheme) return q.tags.subtheme === _curSubtheme;
-    return !q.tags.subtheme;
+    return true;
   });
 
   const kwOrder  = [];
@@ -486,8 +562,12 @@ renderLanding();
 
 
 def generate_html(questions: list[dict]) -> str:
+    with open(SYLLABUS_PATH, encoding="utf-8") as f:
+        syllabus = json.load(f)
+    syl_index = _build_syllabus_index(syllabus)
     data_json = json.dumps(questions, ensure_ascii=False)
-    js = _JS.replace("__DATA__", data_json)
+    syl_json  = json.dumps(syl_index, ensure_ascii=False)
+    js = _JS.replace("__DATA__", data_json).replace("__SYLLABUS_INDEX__", syl_json)
     return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
