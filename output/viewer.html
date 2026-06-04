@@ -121,7 +121,7 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 .kw-chip.active { border-color: var(--accent); background: var(--accent2); color: var(--accent); }
 .keyword-chips { display: flex; flex-wrap: wrap; gap: .3rem; }
 
-/* ── Subject buttons (theme) ──────────────────── */
+/* ── Subject buttons ──────────────────────────── */
 .subject-btn {
   display: block; width: 100%; text-align: left;
   padding: .3rem .6rem; margin-bottom: .25rem;
@@ -148,6 +148,12 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 .num-cell { text-align: center; color: var(--accent); font-weight: 500; }
 .cell-link { cursor: pointer; }
 .cell-link:hover { background: var(--accent2) !important; text-decoration: underline; }
+.table2-theme-label {
+  font-family: var(--font-mono); font-size: .65rem; font-weight: 500;
+  color: var(--accent); padding: .6rem 0 .25rem; margin-top: .5rem;
+  border-top: 1px solid var(--border2);
+}
+.table2-theme-label:first-child { border-top: none; margin-top: 0; padding-top: 0; }
 
 /* ── Reset ────────────────────────────────────── */
 .reset-btn {
@@ -166,8 +172,19 @@ main { animation: fadeUp .4s .35s ease both; }
 .stats-bar { font-family: var(--font-mono); font-size: .65rem; color: var(--text3); margin-bottom: 1rem; display: flex; gap: 1rem; }
 .stats-bar strong { color: var(--accent); font-size: 1rem; }
 
-/* ── Results table ────────────────────────────── */
+/* ── Results controls ─────────────────────────── */
 .results-controls { display: flex; align-items: center; gap: .75rem; margin-bottom: .9rem; flex-wrap: wrap; }
+.lang-btn {
+  font-size: .6rem; font-family: var(--font-mono);
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  background: none; cursor: pointer; padding: .15rem .5rem; color: var(--text3);
+  transition: border-color .1s, color .1s, background .1s;
+}
+.lang-btn.active { border-color: var(--accent); background: var(--accent2); color: var(--accent); font-weight: 500; }
+.lang-btn:hover { border-color: var(--accent); color: var(--accent); }
+.lang-sep { color: var(--border2); font-family: var(--font-mono); font-size: .65rem; }
+
+/* ── Results table ────────────────────────────── */
 .tnpsc-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
 .tnpsc-table th {
   background: var(--bg2); padding: .35rem .8rem;
@@ -243,7 +260,7 @@ main { animation: fadeUp .4s .35s ease both; }
   <header>
     <hr class="masthead-rule">
     <h1>TNPSC Group I Mains &middot; <em>PYQ Question Bank</em></h1>
-    <div class="header-sub">Papers I&ndash;III &nbsp;&middot;&nbsp; 2013&ndash;2025 &nbsp;&middot;&nbsp; Tamil &amp; English &nbsp;&middot;&nbsp; Filter &amp; Study</div>
+    <div class="header-sub">Papers I&ndash;III &nbsp;&middot;&nbsp; 2019&ndash;2025 &nbsp;&middot;&nbsp; Tamil &amp; English &nbsp;&middot;&nbsp; Filter &amp; Study</div>
     <hr class="masthead-rule bottom">
   </header>
 
@@ -273,24 +290,6 @@ main { animation: fadeUp .4s .35s ease both; }
       <div id="unit-filters"></div>
     </div>
 
-    <!-- Theme × Year table -->
-    <div class="filter-card" id="table1-card">
-      <div class="filter-title-row">
-        <span class="filter-title">Theme &times; Year</span>
-        <button class="table-toggle-btn" id="table1-toggle-btn" onclick="toggleTable1()">Show &#9660;</button>
-      </div>
-      <div id="table1-body"></div>
-    </div>
-
-    <!-- Keyword × Year table -->
-    <div class="filter-card" id="table2-card" style="display:none">
-      <div class="filter-title-row">
-        <span class="filter-title">Keyword &times; Year</span>
-        <button class="table-toggle-btn" id="table2-toggle-btn" onclick="toggleTable2()">Show &#9660;</button>
-      </div>
-      <div id="table2-body"></div>
-    </div>
-
     <!-- Theme -->
     <div class="filter-card">
       <div class="filter-title-row">
@@ -309,6 +308,24 @@ main { animation: fadeUp .4s .35s ease both; }
       <div class="keyword-chips" id="keyword-chips"></div>
     </div>
 
+    <!-- Theme × Year table -->
+    <div class="filter-card" id="table1-card">
+      <div class="filter-title-row">
+        <span class="filter-title">Theme &times; Year</span>
+        <button class="table-toggle-btn" id="table1-toggle-btn" onclick="toggleTable1()">Hide &#9650;</button>
+      </div>
+      <div id="table1-body"></div>
+    </div>
+
+    <!-- Keyword × Year table -->
+    <div class="filter-card" id="table2-card" style="display:none">
+      <div class="filter-title-row">
+        <span class="filter-title">Keyword &times; Year</span>
+        <button class="table-toggle-btn" id="table2-toggle-btn" onclick="toggleTable2()">Hide &#9650;</button>
+      </div>
+      <div id="table2-body"></div>
+    </div>
+
     <!-- Search -->
     <div class="filter-card">
       <div class="filter-title">Search</div>
@@ -322,6 +339,13 @@ main { animation: fadeUp .4s .35s ease both; }
     <div class="stats-bar">
       <span><strong id="count">0</strong> questions</span>
       <span><strong id="years-count">0</strong> years</span>
+    </div>
+    <div class="results-controls">
+      <button class="inline-toggle-btn" id="view-toggle-btn" onclick="toggleView()">Card View</button>
+      <span class="lang-sep">|</span>
+      <button class="lang-btn active" data-lang="both"    onclick="setLang('both')">Both</button>
+      <button class="lang-btn"        data-lang="english" onclick="setLang('english')">English</button>
+      <button class="lang-btn"        data-lang="tamil"   onclick="setLang('tamil')">Tamil</button>
     </div>
     <div id="results"></div>
   </main>
@@ -348,7 +372,8 @@ const state = {
   search:   ''
 };
 
-let viewMode = 'table';   // 'table' | 'card'
+let viewMode     = 'table';   // 'table' | 'card'
+let langMode     = 'both';    // 'both' | 'english' | 'tamil'
 let multiYearMode = false;
 let table1Visible = true;
 let table2Visible = true;
@@ -499,45 +524,6 @@ function initUnits() {
   });
 }
 
-/* ── Section chips ──────────────────────────────────────────────── */
-function initSections() {
-  const el = document.getElementById('section-filters');
-  let html = '';
-  for (const s of ['A', 'B', 'C', 'D']) {
-    html += '<label class="check-chip' + (state.section === s ? ' checked' : '') + '" data-s="' + s + '"><input type="checkbox">Sec ' + s + '</label>';
-  }
-  el.innerHTML = html;
-  el.querySelectorAll('.check-chip').forEach(label => {
-    label.addEventListener('click', e => {
-      e.preventDefault();
-      const s = label.dataset.s;
-      state.section = state.section === s ? null : s;
-      initSections();
-      applyFilters();
-    });
-  });
-}
-
-/* ── Marks chips ────────────────────────────────────────────────── */
-function initMarks() {
-  const el = document.getElementById('marks-filters');
-  const vals = [...new Set(QUESTIONS.map(q => q.marks).filter(m => m != null))].sort((a,b) => a - b);
-  let html = '';
-  for (const m of vals) {
-    html += '<label class="check-chip' + (state.marks === m ? ' checked' : '') + '" data-m="' + m + '"><input type="checkbox">' + m + 'M</label>';
-  }
-  el.innerHTML = html;
-  el.querySelectorAll('.check-chip').forEach(label => {
-    label.addEventListener('click', e => {
-      e.preventDefault();
-      const m = parseInt(label.dataset.m, 10);
-      state.marks = state.marks === m ? null : m;
-      initMarks();
-      applyFilters();
-    });
-  });
-}
-
 /* ── Theme buttons ──────────────────────────────────────────────── */
 function renderThemeButtons() {
   const container = document.getElementById('theme-buttons');
@@ -672,7 +658,7 @@ function toggleTable1() {
   renderTable1();
 }
 
-/* ── Frequency: Keyword × Year ──────────────────────────────────── */
+/* ── Frequency: Keyword × Year (per-theme when multiple) ────────── */
 function renderTable2() {
   const card = document.getElementById('table2-card');
   if (state.themes.size === 0) { card.style.display = 'none'; return; }
@@ -682,38 +668,51 @@ function renderTable2() {
   if (!table2Visible) { body.innerHTML = ''; return; }
 
   const years = state.years.size > 0 ? [...state.years].sort((a,b) => a-b) : ALL_YEARS;
-  const base = QUESTIONS.filter(q =>
-    (!state.paper || q.paper === state.paper) &&
-    (!state.unit  || q.unit_number === state.unit) &&
-    (state.themes.size === 0 || state.themes.has(q.tags && q.tags.theme))
-  );
-  const kws = [...new Set(base.map(q => q.tags && q.tags.keyword).filter(Boolean))].sort();
-  const counts = {};
-  for (const k of kws) counts[k] = {};
-  for (const q of base) {
-    const k = q.tags && q.tags.keyword;
-    if (!k) continue;
-    counts[k][q.year] = (counts[k][q.year] || 0) + 1;
-  }
+  const themesToShow = [...state.themes].sort();
+  const multiTheme = themesToShow.length > 1;
 
-  let html = '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Keyword</th>';
-  for (const y of years) html += '<th>' + y + '</th>';
-  html += '<th>Total</th></tr></thead><tbody>';
-  for (const k of kws) {
-    const rowTotal = years.reduce((a, y) => a + (counts[k][y] || 0), 0);
-    const kCls = rowTotal > 0 ? ' class="cell-link"' : '';
-    const kClick = rowTotal > 0 ? ' onclick="applyFromTable2Kw(' + JSON.stringify(k) + ')"' : '';
-    html += '<tr><td' + kCls + kClick + '>' + esc(k) + '</td>';
-    for (const y of years) {
-      const c = counts[k][y] || 0;
-      const cls = c > 0 ? ' class="num-cell cell-link"' : ' class="num-cell"';
-      const click = c > 0 ? ' onclick="applyFromTable2(' + JSON.stringify(k) + ',' + y + ')"' : '';
-      html += '<td' + cls + click + '>' + (c || '') + '</td>';
+  let allHtml = '';
+  for (const theme of themesToShow) {
+    const base = QUESTIONS.filter(q =>
+      (!state.paper || q.paper === state.paper) &&
+      (!state.unit  || q.unit_number === state.unit) &&
+      q.tags && q.tags.theme === theme
+    );
+    const kws = [...new Set(base.map(q => q.tags && q.tags.keyword).filter(Boolean))].sort();
+    if (!kws.length) continue;
+
+    if (multiTheme) {
+      allHtml += '<div class="table2-theme-label">' + esc(theme) + '</div>';
     }
-    html += '<td class="num-cell">' + (rowTotal || '') + '</td></tr>';
+
+    const counts = {};
+    for (const k of kws) counts[k] = {};
+    for (const q of base) {
+      const k = q.tags && q.tags.keyword;
+      if (!k) continue;
+      counts[k][q.year] = (counts[k][q.year] || 0) + 1;
+    }
+
+    let html = '<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Keyword</th>';
+    for (const y of years) html += '<th>' + y + '</th>';
+    html += '<th>Total</th></tr></thead><tbody>';
+    for (const k of kws) {
+      const rowTotal = years.reduce((a, y) => a + (counts[k][y] || 0), 0);
+      const kCls = rowTotal > 0 ? ' class="cell-link"' : '';
+      const kClick = rowTotal > 0 ? ' onclick="applyFromTable2Kw(' + JSON.stringify(k) + ')"' : '';
+      html += '<tr><td' + kCls + kClick + '>' + esc(k) + '</td>';
+      for (const y of years) {
+        const c = counts[k][y] || 0;
+        const cls = c > 0 ? ' class="num-cell cell-link"' : ' class="num-cell"';
+        const click = c > 0 ? ' onclick="applyFromTable2(' + JSON.stringify(k) + ',' + y + ')"' : '';
+        html += '<td' + cls + click + '>' + (c || '') + '</td>';
+      }
+      html += '<td class="num-cell">' + (rowTotal || '') + '</td></tr>';
+    }
+    html += '</tbody></table></div>';
+    allHtml += html;
   }
-  html += '</tbody></table></div>';
-  body.innerHTML = html;
+  body.innerHTML = allHtml;
 }
 
 function applyFromTable2(kw, year) {
@@ -737,12 +736,18 @@ function toggleTable2() {
   renderTable2();
 }
 
+/* ── Language selector ──────────────────────────────────────────── */
+function setLang(lang) {
+  langMode = lang;
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  renderResults(filterItems());
+}
+
 /* ── View toggle ────────────────────────────────────────────────── */
 function toggleView() {
   viewMode = viewMode === 'table' ? 'card' : 'table';
   document.getElementById('view-toggle-btn').textContent = viewMode === 'table' ? 'Card View' : 'Table View';
-  const items = filterItems();
-  renderResults(items);
+  renderResults(filterItems());
 }
 
 /* ── Render results ─────────────────────────────────────────────── */
@@ -766,18 +771,17 @@ function renderCards(items, el) {
     html += '<span class="q-badge">Q' + esc(q.question_number) + '</span>';
     html += '<span class="q-meta">' + esc(meta) + '</span>';
     html += '<div class="q-tags">';
-    if (tags.theme)    html += '<span class="tag-theme">' + esc(tags.theme) + '</span>';
-    if (tags.keyword)  html += '<span class="tag-kw">'    + esc(tags.keyword) + '</span>';
+    if (tags.theme)   html += '<span class="tag-theme">' + esc(tags.theme) + '</span>';
+    if (tags.keyword) html += '<span class="tag-kw">'    + esc(tags.keyword) + '</span>';
     html += '</div></div>';
-    if (q.tamil)   html += '<div class="q-tamil">'   + esc(q.tamil)   + '</div>';
-    if (q.english) html += '<div class="q-english">' + esc(q.english) + '</div>';
+    if ((langMode === 'both' || langMode === 'tamil')   && q.tamil)   html += '<div class="q-tamil">'   + esc(q.tamil)   + '</div>';
+    if ((langMode === 'both' || langMode === 'english') && q.english) html += '<div class="q-english">' + esc(q.english) + '</div>';
     html += '</div>';
   }
   el.innerHTML = html;
 }
 
 function renderTable(items, el) {
-  // Group: paper → theme → questions
   const paperOrder = ['Paper I', 'Paper II', 'Paper III'];
 
   const byPaper = new Map();
@@ -790,13 +794,11 @@ function renderTable(items, el) {
     themeMap.get(theme).push(q);
   }
 
-  // sort each theme's questions: year desc, q# asc
   for (const [, tm] of byPaper)
     for (const [, arr] of tm)
       arr.sort((a,b) => b.year - a.year || a.question_number - b.question_number);
 
-  let html = '<div class="results-controls"><button class="inline-toggle-btn" id="view-toggle-btn" onclick="toggleView()">Card View</button></div>';
-
+  let html = '';
   for (const paper of paperOrder) {
     const themeMap = byPaper.get(paper);
     if (!themeMap || !themeMap.size) continue;
@@ -818,8 +820,8 @@ function renderTable(items, el) {
         html += '<td class="year-cell">' + q.year + '</td>';
         html += '<td class="qnum-cell">Q' + esc(q.question_number) + '</td>';
         html += '<td class="q-cell">';
-        if (q.tamil)   html += '<div class="tamil-text">'   + esc(q.tamil)   + '</div>';
-        if (q.english) html += '<div class="english-text">' + esc(q.english) + '</div>';
+        if ((langMode === 'both' || langMode === 'tamil')   && q.tamil)   html += '<div class="tamil-text">'   + esc(q.tamil)   + '</div>';
+        if ((langMode === 'both' || langMode === 'english') && q.english) html += '<div class="english-text">' + esc(q.english) + '</div>';
         html += '</td>';
         html += '<td class="sec-cell">'   + esc(q.section || '—') + '</td>';
         html += '<td class="marks-cell">' + (q.marks ? esc(String(q.marks)) + 'M' : '—') + '</td>';
@@ -869,6 +871,25 @@ function resetFilters() {
 }
 
 /* ── Boot ───────────────────────────────────────────────────────── */
+// Default: latest year, Paper I, Unit I, first theme, all keywords
+const _latestYear = ALL_YEARS[ALL_YEARS.length - 1];
+state.years.add(_latestYear);
+state.paper = 'Paper I';
+state.unit  = 'I';
+
+const _defBase = QUESTIONS.filter(q => q.paper === 'Paper I' && q.unit_number === 'I');
+const _defThemes = [...new Set(_defBase.map(q => q.tags && q.tags.theme).filter(Boolean))].sort();
+if (_defThemes.length) {
+  state.themes.add(_defThemes[0]);
+  const _defKws = [...new Set(
+    _defBase
+      .filter(q => q.tags && q.tags.theme === _defThemes[0])
+      .map(q => q.tags && q.tags.keyword)
+      .filter(Boolean)
+  )];
+  _defKws.forEach(k => state.keywords.add(k));
+}
+
 initYears();
 initPapers();
 initUnits();
