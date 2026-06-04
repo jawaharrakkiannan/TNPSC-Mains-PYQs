@@ -132,6 +132,12 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
   font-weight: 500; font-size: .85rem; color: var(--text);
   cursor: pointer; transition: background .1s;
 }
+.unit-num-cell {
+  font-family: var(--font-mono); font-size: .75rem; font-weight: 600;
+  color: var(--text3); text-align: center; white-space: nowrap;
+  width: 3.2rem; min-width: 2.8rem;
+  cursor: pointer; transition: background .1s;
+}
 .unit-name  { font-size: .85rem; color: var(--text); }
 .unit-label { font-family: var(--font-mono); font-size: .58rem; color: var(--text3); margin-top: .15rem; }
 .theme-cell {
@@ -309,7 +315,7 @@ function showLanding() { showPage('pg-landing'); }
 
 function renderLanding() {
   let html = '<div style="overflow-x:auto"><table class="nav-table"><thead><tr>'
-           + '<th>Paper</th><th>Unit</th>'
+           + '<th>Paper</th><th style="width:3.2rem;text-align:center">#</th><th>Unit Name</th>'
            + '</tr></thead><tbody>';
 
   for (const paper of PAPER_ORDER) {
@@ -328,11 +334,13 @@ function renderLanding() {
       if (units.length) {
         const u        = units[i];
         const fullName = unitNames[paper + '\x00' + u] || ('Unit ' + u);
-        html += '<td class="unit-cell clickable" onclick="showUnit(' + ja(paper) + ',' + ja(u) + ')">'
+        const clickAttr = ' onclick="showUnit(' + ja(paper) + ',' + ja(u) + ')"';
+        html += '<td class="unit-num-cell clickable"' + clickAttr + '>' + esc(u) + '</td>'
+              + '<td class="unit-cell clickable"' + clickAttr + '>'
               + '<div class="unit-name">' + esc(fullName) + '</div>'
               + '</td>';
       } else {
-        html += '<td class="sub-cell muted">No units found</td>';
+        html += '<td class="sub-cell muted" colspan="2">No units found</td>';
       }
       html += '</tr>';
     }
