@@ -69,7 +69,7 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 /* ── Page nav bar ──────────────────────────────────── */
 .page-nav {
   display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;
-  padding-bottom: .75rem; border-bottom: 1px solid var(--border);
+  padding-bottom: .75rem; border-bottom: 1px solid var(--border); flex-wrap: wrap;
 }
 .back-btn {
   font-family: var(--font-mono); font-size: .65rem; font-weight: 500;
@@ -82,6 +82,20 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
   font-family: var(--font-mono); font-size: .7rem; color: var(--text2);
   letter-spacing: .06em;
 }
+
+/* ── Language selector ─────────────────────────────── */
+.lang-bar {
+  display: flex; align-items: center; gap: .3rem; margin-bottom: 1rem;
+}
+.lang-btn {
+  font-size: .6rem; font-family: var(--font-mono);
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  background: none; cursor: pointer; padding: .18rem .55rem; color: var(--text3);
+  transition: border-color .1s, color .1s, background .1s;
+}
+.lang-btn.active { border-color: var(--accent); background: var(--accent2); color: var(--accent); font-weight: 500; }
+.lang-btn:hover  { border-color: var(--accent); color: var(--accent); }
+.lang-sep { color: var(--border2); font-family: var(--font-mono); font-size: .65rem; margin: 0 .1rem; }
 
 /* ── Section headings ──────────────────────────────── */
 .section-label {
@@ -102,9 +116,9 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 .nav-table td { padding: .55rem .85rem; border: 1px solid var(--border); vertical-align: top; }
 .nav-table tr:hover td { background: var(--accent3); }
 .row-hover td { background: var(--accent2) !important; }
-.row-hover .paper-cell  { border-left-color: var(--accent) !important; }
-.row-hover .theme-cell  { border-left-color: var(--accent) !important; }
-.row-hover .kw-cell     { border-left-color: var(--accent) !important; }
+.row-hover .paper-cell { border-left-color: var(--accent) !important; }
+.row-hover .theme-cell { border-left-color: var(--accent) !important; }
+.row-hover .kw-cell    { border-left-color: var(--accent) !important; }
 
 .paper-cell {
   font-weight: 600; font-size: .85rem;
@@ -114,14 +128,20 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 }
 .paper-name { color: var(--text); }
 .paper-desc { font-family: var(--font-mono); font-size: .6rem; color: var(--text3); margin-top: .2rem; font-weight: 400; }
+.unit-cell {
+  font-weight: 500; font-size: .85rem; color: var(--text);
+  cursor: pointer; transition: background .1s;
+}
+.unit-name  { font-size: .85rem; color: var(--text); }
+.unit-label { font-family: var(--font-mono); font-size: .58rem; color: var(--text3); margin-top: .15rem; }
 .theme-cell {
   font-weight: 500; font-size: .82rem;
   border-left: 3px solid transparent !important;
   color: var(--text2); width: 30%; min-width: 12rem;
   transition: border-left-color .12s;
 }
-.sub-cell  { font-size: .85rem; color: var(--text); }
-.kw-cell   {
+.sub-cell { font-size: .85rem; color: var(--text); }
+.kw-cell  {
   font-size: .78rem; font-weight: 500; color: var(--text2);
   border-left: 3px solid transparent !important;
   width: 22%; min-width: 10rem; transition: border-left-color .12s;
@@ -132,7 +152,7 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
 .group-break td { border-top: 2px solid rgba(234,88,12,.22) !important; }
 
 /* ── Question cell ─────────────────────────────────── */
-.q-cell { line-height: 1.65; }
+.q-cell    { line-height: 1.65; }
 .q-tamil   { font-size: .85rem; color: var(--text); margin-bottom: .25rem; }
 .q-english { font-size: .83rem; color: var(--text2); }
 .year-cell {
@@ -159,26 +179,36 @@ header h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
   <header>
     <hr class="masthead-rule">
     <h1>TNPSC Group I Mains &middot; <em>Question Navigator</em></h1>
-    <div class="header-sub">Papers I&ndash;III &nbsp;&middot;&nbsp; 2013&ndash;2025 &nbsp;&middot;&nbsp; Paper &rarr; Theme &rarr; Questions</div>
+    <div class="header-sub">Papers I&ndash;III &nbsp;&middot;&nbsp; 2019&ndash;2025 &nbsp;&middot;&nbsp; Paper &rarr; Unit &rarr; Theme &rarr; Questions</div>
     <hr class="masthead-rule bottom">
   </header>
 
+  <!-- Page 1: Landing (Paper × Unit) -->
   <div id="pg-landing">
     <div id="landing-content"></div>
   </div>
 
-  <div id="pg-paper" style="display:none">
+  <!-- Page 2: Unit (Theme × Subtheme/Keyword) -->
+  <div id="pg-unit" style="display:none">
     <div class="page-nav">
       <button class="back-btn" onclick="showLanding()">&#8592; All Papers</button>
-      <span class="page-nav-title" id="paper-nav-title"></span>
+      <span class="page-nav-title" id="unit-nav-title"></span>
     </div>
-    <div id="paper-content"></div>
+    <div id="unit-content"></div>
   </div>
 
+  <!-- Page 3: Detail (Keyword × Question × Year) -->
   <div id="pg-detail" style="display:none">
     <div class="page-nav">
       <button class="back-btn" id="detail-back-btn">&#8592; Back</button>
       <span class="page-nav-title" id="detail-nav-title"></span>
+    </div>
+    <div class="lang-bar">
+      <button class="lang-btn active" data-lang="english" onclick="setDetailLang('english')">English</button>
+      <span class="lang-sep">|</span>
+      <button class="lang-btn" data-lang="tamil"   onclick="setDetailLang('tamil')">Tamil</button>
+      <span class="lang-sep">|</span>
+      <button class="lang-btn" data-lang="both"    onclick="setDetailLang('both')">Both</button>
     </div>
     <div id="detail-top-content"></div>
     <div id="detail-q-content"></div>
@@ -199,25 +229,36 @@ const PAPER_META  = {
   'Paper II':  'Indian Polity · Sci & Tech · Tamil Society',
   'Paper III': 'Geography · Environment · Economy'
 };
+const UNIT_ROMAN_ORDER = ['I', 'II', 'III'];
 
 /* ── Build index ─────────────────────────────────────────────────── */
-const paperThemes      = {};  // paper -> [theme]
-const themeSubthemes   = {};  // "paper\0theme" -> [subtheme]
-const subthemeKeywords = {};  // "paper\0theme\0subtheme" -> [keyword]
-const themeKeywords    = {};  // "paper\0theme" -> [keyword]  (no-subtheme themes)
+const paperUnits       = {};  // paper -> [unit_number]
+const unitNames        = {};  // "paper\0unit" -> full unit name
+const unitThemes       = {};  // "paper\0unit" -> [theme]
+const themeSubthemes   = {};  // "paper\0unit\0theme" -> [subtheme]
+const subthemeKeywords = {};  // "paper\0unit\0theme\0subtheme" -> [keyword]
+const themeKeywords    = {};  // "paper\0unit\0theme" -> [keyword]  (flat — no subtheme)
 
 for (const q of QUESTIONS) {
   const p  = q.paper;
+  const u  = q.unit_number;
   const th = (q.tags && q.tags.theme)    || '';
   const st = (q.tags && q.tags.subtheme) || '';
   const kw = (q.tags && q.tags.keyword)  || '';
-  if (!p) continue;
-  if (!th) continue;  // skip untagged
+  if (!p || !u) continue;
 
-  if (!paperThemes[p]) paperThemes[p] = [];
-  if (!paperThemes[p].includes(th)) paperThemes[p].push(th);
+  if (!paperUnits[p]) paperUnits[p] = [];
+  if (!paperUnits[p].includes(u)) paperUnits[p].push(u);
 
-  const thKey = p + '\x00' + th;
+  const uKey = p + '\x00' + u;
+  if (!unitNames[uKey] && q.tags && q.tags.unit) unitNames[uKey] = q.tags.unit;
+
+  if (!th) continue;
+
+  if (!unitThemes[uKey]) unitThemes[uKey] = [];
+  if (!unitThemes[uKey].includes(th)) unitThemes[uKey].push(th);
+
+  const thKey = uKey + '\x00' + th;
   if (!themeSubthemes[thKey]) themeSubthemes[thKey] = [];
   if (st && !themeSubthemes[thKey].includes(st)) themeSubthemes[thKey].push(st);
 
@@ -232,25 +273,15 @@ for (const q of QUESTIONS) {
   }
 }
 
-// Unit index (for papers with no themes)
-const paperUnits = {};    // paper -> [unit_number]
-const unitNames  = {};    // "paper\0unit" -> full unit name from tags
-
-for (const q of QUESTIONS) {
-  const p = q.paper;
-  const u = q.unit_number;
-  if (!p || !u) continue;
-  if (!paperUnits[p]) paperUnits[p] = [];
-  if (!paperUnits[p].includes(u)) paperUnits[p].push(u);
-  const key = p + '\x00' + u;
-  if (!unitNames[key] && q.tags && q.tags.unit) unitNames[key] = q.tags.unit;
-}
+/* ── State ───────────────────────────────────────────────────────── */
+let detailLang = 'english';
+let _curPaper, _curUnit, _curTheme, _curSubtheme;
 
 /* ── Helpers ─────────────────────────────────────────────────────── */
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
-function ja(v) { return esc(JSON.stringify(v)); }   // JSON-for-attribute
+function ja(v) { return esc(JSON.stringify(v)); }
 
 function applyGroupHover(tableEl) {
   tableEl.querySelectorAll('td[rowspan]').forEach(td => {
@@ -267,40 +298,41 @@ function applyGroupHover(tableEl) {
 }
 
 function showPage(id) {
-  ['pg-landing', 'pg-paper', 'pg-detail'].forEach(p => {
+  ['pg-landing', 'pg-unit', 'pg-detail'].forEach(p => {
     document.getElementById(p).style.display = p === id ? '' : 'none';
   });
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-/* ── Landing ─────────────────────────────────────────────────────── */
+/* ── Landing: Paper × Unit ───────────────────────────────────────── */
 function showLanding() { showPage('pg-landing'); }
 
 function renderLanding() {
   let html = '<div style="overflow-x:auto"><table class="nav-table"><thead><tr>'
-           + '<th>Paper</th><th>Theme</th>'
+           + '<th>Paper</th><th>Unit</th>'
            + '</tr></thead><tbody>';
 
   for (const paper of PAPER_ORDER) {
-    const themes    = paperThemes[paper] || [];
-    const hasThemes = themes.length > 0;
-    const rows      = hasThemes ? themes : ['—'];
-    const rowCount  = rows.length;
+    const units = (paperUnits[paper] || [])
+      .slice().sort((a, b) => UNIT_ROMAN_ORDER.indexOf(a) - UNIT_ROMAN_ORDER.indexOf(b));
+    const rowCount = units.length || 1;
 
     for (let i = 0; i < rowCount; i++) {
       html += '<tr>';
       if (i === 0) {
-        html += '<td class="paper-cell clickable" rowspan="' + rowCount + '"'
-              + ' onclick="showPaper(' + ja(paper) + ')">'
+        html += '<td class="paper-cell" rowspan="' + rowCount + '">'
               + '<div class="paper-name">' + esc(paper) + '</div>'
               + '<div class="paper-desc">' + esc(PAPER_META[paper] || '') + '</div>'
               + '</td>';
       }
-      if (hasThemes) {
-        html += '<td class="theme-cell clickable" onclick="showPaper(' + ja(paper) + ')">'
-              + esc(rows[i]) + '</td>';
+      if (units.length) {
+        const u        = units[i];
+        const fullName = unitNames[paper + '\x00' + u] || ('Unit ' + u);
+        html += '<td class="unit-cell clickable" onclick="showUnit(' + ja(paper) + ',' + ja(u) + ')">'
+              + '<div class="unit-name">' + esc(fullName) + '</div>'
+              + '</td>';
       } else {
-        html += '<td class="sub-cell muted">Questions available — themes not yet tagged</td>';
+        html += '<td class="sub-cell muted">No units found</td>';
       }
       html += '</tr>';
     }
@@ -312,22 +344,23 @@ function renderLanding() {
   el.querySelectorAll('.nav-table').forEach(applyGroupHover);
 }
 
-/* ── Paper page ──────────────────────────────────────────────────── */
-function showPaper(paper) {
-  document.getElementById('paper-nav-title').textContent =
-    paper + ' — ' + (PAPER_META[paper] || '');
-  renderPaperTable(paper);
-  showPage('pg-paper');
+/* ── Unit page: Theme × Subtheme / Keyword ───────────────────────── */
+function showUnit(paper, unit) {
+  _curPaper = paper;
+  _curUnit  = unit;
+  const fullName = unitNames[paper + '\x00' + unit] || ('Unit ' + unit);
+  document.getElementById('unit-nav-title').textContent = paper + ' › ' + fullName;
+  renderUnitPage(paper, unit);
+  showPage('pg-unit');
 }
 
-function renderPaperTable(paper) {
-  const themes    = paperThemes[paper] || [];
-  const hasThemes = themes.length > 0;
-  const el = document.getElementById('paper-content');
+function renderUnitPage(paper, unit) {
+  const uKey   = paper + '\x00' + unit;
+  const themes = unitThemes[uKey] || [];
+  const el     = document.getElementById('unit-content');
 
-  if (!hasThemes) {
-    /* Fallback: group by unit, show questions directly */
-    renderUnitQuestions(paper, el);
+  if (!themes.length) {
+    el.innerHTML = '<p class="no-data">No themes tagged for this unit yet.</p>';
     return;
   }
 
@@ -337,17 +370,18 @@ function renderPaperTable(paper) {
 
   let groupIdx = 0;
   for (const theme of themes) {
-    const thKey = paper + '\x00' + theme;
-    const subs  = themeSubthemes[thKey]  || [];
-    const kws   = themeKeywords[thKey]   || [];
+    const thKey = uKey + '\x00' + theme;
+    const subs  = themeSubthemes[thKey] || [];
+    const kws   = themeKeywords[thKey]  || [];
     const items = subs.length ? subs : kws;
     const isKw  = subs.length === 0;
 
     if (!items.length) {
       const rowCls = groupIdx > 0 ? ' class="group-break"' : '';
       html += '<tr' + rowCls + '>'
-            + '<td class="theme-cell clickable" onclick="showDetail('
-            + ja(paper) + ',' + ja(theme) + ',null)">' + esc(theme) + '</td>'
+            + '<td class="theme-cell clickable" rowspan="1"'
+            + ' onclick="showDetail(' + ja(paper) + ',' + ja(unit) + ',' + ja(theme) + ',null)">'
+            + esc(theme) + '</td>'
             + '<td class="sub-cell muted">—</td></tr>';
       groupIdx++; continue;
     }
@@ -358,10 +392,11 @@ function renderPaperTable(paper) {
       html += '<tr' + rowCls + '>';
       if (i === 0) {
         html += '<td class="theme-cell clickable" rowspan="' + items.length + '"'
-              + ' onclick="showDetail(' + ja(paper) + ',' + ja(theme) + ',null)">'
+              + ' onclick="showDetail(' + ja(paper) + ',' + ja(unit) + ',' + ja(theme) + ',null)">'
               + esc(theme) + '</td>';
       }
-      const detailArgs = ja(paper) + ',' + ja(theme) + ',' + (isKw ? 'null' : ja(item));
+      const detailArgs = ja(paper) + ',' + ja(unit) + ',' + ja(theme) + ','
+                       + (isKw ? 'null' : ja(item));
       html += '<td class="sub-cell clickable" onclick="showDetail(' + detailArgs + ')">'
             + esc(item) + '</td></tr>';
     }
@@ -373,63 +408,44 @@ function renderPaperTable(paper) {
   el.querySelectorAll('.nav-table').forEach(applyGroupHover);
 }
 
-function renderUnitQuestions(paper, el) {
-  /* Used when paper has no theme tags — show Unit → questions directly */
-  const units = (paperUnits[paper] || []).slice().sort();
-  let html = '';
-
-  for (const u of units) {
-    const fullName = unitNames[paper + '\x00' + u] || ('Unit ' + u);
-    const qs = QUESTIONS.filter(q => q.paper === paper && q.unit_number === u)
-                        .sort((a, b) => b.year - a.year || (a.question_number || 0) - (b.question_number || 0));
-    if (!qs.length) continue;
-
-    html += '<p class="section-label">' + esc(fullName) + ' (' + qs.length + ' questions)</p>';
-    html += '<div style="overflow-x:auto;margin-bottom:2rem"><table class="nav-table">'
-          + '<thead><tr><th>Q#</th><th>Question</th><th>Year</th></tr></thead><tbody>';
-    for (const q of qs) {
-      html += '<tr>'
-            + '<td class="qnum-cell">Q' + esc(q.question_number) + '</td>'
-            + '<td class="q-cell">';
-      if (q.tamil)   html += '<div class="q-tamil">'   + esc(q.tamil)   + '</div>';
-      if (q.english) html += '<div class="q-english">' + esc(q.english) + '</div>';
-      html += '</td>'
-            + '<td class="year-cell">' + q.year + '</td>'
-            + '</tr>';
-    }
-    html += '</tbody></table></div>';
-  }
-
-  if (!html) html = '<p class="no-data">No questions found for this paper.</p>';
-  el.innerHTML = html;
-}
-
-/* ── Detail page ─────────────────────────────────────────────────── */
-function showDetail(paper, theme, subtheme) {
-  const crumb = paper + ' › ' + theme + (subtheme ? ' › ' + subtheme : '');
+/* ── Detail page: Keyword × Question × Year ──────────────────────── */
+function showDetail(paper, unit, theme, subtheme) {
+  _curPaper    = paper;
+  _curUnit     = unit;
+  _curTheme    = theme;
+  _curSubtheme = subtheme;
+  const fullUnit = unitNames[paper + '\x00' + unit] || ('Unit ' + unit);
+  const crumb    = paper + ' › ' + fullUnit + ' › ' + theme + (subtheme ? ' › ' + subtheme : '');
   document.getElementById('detail-nav-title').textContent = crumb;
-  document.getElementById('detail-back-btn').onclick = () => showPaper(paper);
-  renderDetailPage(paper, theme, subtheme);
+  document.getElementById('detail-back-btn').onclick = () => showUnit(paper, unit);
+  renderDetailQuestions();
   showPage('pg-detail');
 }
 
-function renderDetailPage(paper, theme, subtheme) {
-  const thKey = paper + '\x00' + theme;
+function setDetailLang(lang) {
+  detailLang = lang;
+  document.querySelectorAll('.lang-btn').forEach(b =>
+    b.classList.toggle('active', b.dataset.lang === lang));
+  renderDetailQuestions();
+}
 
-  /* ── Top: subtheme × keywords ─────────────────── */
+function renderDetailQuestions() {
+  const uKey  = _curPaper + '\x00' + _curUnit;
+  const thKey = uKey + '\x00' + _curTheme;
+
+  /* Top: subtheme × keywords summary */
   let topHtml = '';
-
-  if (subtheme) {
-    const stKey = thKey + '\x00' + subtheme;
+  if (_curSubtheme) {
+    const stKey = thKey + '\x00' + _curSubtheme;
     const kws   = subthemeKeywords[stKey] || [];
     if (kws.length) {
       topHtml += '<p class="section-label">Topics under this subtheme</p>'
-               + '<div style="overflow-x:auto"><table class="nav-table" style="margin-bottom:2.5rem">'
+               + '<div style="overflow-x:auto"><table class="nav-table" style="margin-bottom:2rem">'
                + '<thead><tr><th>Subtheme</th><th>Keyword</th></tr></thead><tbody>';
       for (let i = 0; i < kws.length; i++) {
         topHtml += '<tr>';
         if (i === 0)
-          topHtml += '<td class="theme-cell" rowspan="' + kws.length + '">' + esc(subtheme) + '</td>';
+          topHtml += '<td class="theme-cell" rowspan="' + kws.length + '">' + esc(_curSubtheme) + '</td>';
         topHtml += '<td class="sub-cell">' + esc(kws[i]) + '</td></tr>';
       }
       topHtml += '</tbody></table></div>';
@@ -438,27 +454,25 @@ function renderDetailPage(paper, theme, subtheme) {
     const kws = themeKeywords[thKey] || [];
     if (kws.length) {
       topHtml += '<p class="section-label">Topics under this theme</p>'
-               + '<div style="overflow-x:auto"><table class="nav-table" style="margin-bottom:2.5rem">'
+               + '<div style="overflow-x:auto"><table class="nav-table" style="margin-bottom:2rem">'
                + '<thead><tr><th>Theme</th><th>Keyword</th></tr></thead><tbody>';
       for (let i = 0; i < kws.length; i++) {
         topHtml += '<tr>';
         if (i === 0)
-          topHtml += '<td class="theme-cell" rowspan="' + kws.length + '">' + esc(theme) + '</td>';
+          topHtml += '<td class="theme-cell" rowspan="' + kws.length + '">' + esc(_curTheme) + '</td>';
         topHtml += '<td class="sub-cell">' + esc(kws[i]) + '</td></tr>';
       }
       topHtml += '</tbody></table></div>';
     }
   }
-
   document.getElementById('detail-top-content').innerHTML = topHtml;
-  if (topHtml)
-    document.querySelectorAll('#detail-top-content .nav-table').forEach(applyGroupHover);
+  document.querySelectorAll('#detail-top-content .nav-table').forEach(applyGroupHover);
 
-  /* ── Questions: keyword × question × year ────── */
+  /* Questions */
   const qs = QUESTIONS.filter(q => {
-    if (q.paper !== paper) return false;
-    if (!q.tags || q.tags.theme !== theme) return false;
-    if (subtheme) return q.tags.subtheme === subtheme;
+    if (q.paper !== _curPaper || q.unit_number !== _curUnit) return false;
+    if (!q.tags || q.tags.theme !== _curTheme) return false;
+    if (_curSubtheme) return q.tags.subtheme === _curSubtheme;
     return !q.tags.subtheme;
   });
 
@@ -490,8 +504,10 @@ function renderDetailPage(paper, theme, subtheme) {
         if (i === 0)
           qHtml += '<td class="kw-cell" rowspan="' + arr.length + '">' + esc(kw) + '</td>';
         qHtml += '<td class="q-cell">';
-        if (q.tamil)   qHtml += '<div class="q-tamil">'   + esc(q.tamil)   + '</div>';
-        if (q.english) qHtml += '<div class="q-english">' + esc(q.english) + '</div>';
+        if ((detailLang === 'both' || detailLang === 'tamil')   && q.tamil)
+          qHtml += '<div class="q-tamil">'   + esc(q.tamil)   + '</div>';
+        if ((detailLang === 'both' || detailLang === 'english') && q.english)
+          qHtml += '<div class="q-english">' + esc(q.english) + '</div>';
         qHtml += '</td><td class="year-cell">' + q.year + '</td></tr>';
       }
       kwGroupIdx++;
