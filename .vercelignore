@@ -1,0 +1,22 @@
+# Only output/ and index.html should be served — exclude everything else
+scripts/
+tests/
+docs/
+data/
+Mains_PYQs/
+.claude/
+memory/
+*.py
+*.txt
+*.md
+*.ini
+*.cfg
+*.toml
+*.lock
+requirements*.txt
+run_pipeline.py
+.env*
+.gitignore
+.coverage
+.pytest_cache/
+__pycache__/
